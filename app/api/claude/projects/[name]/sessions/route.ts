@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSessions } from "@/lib/claude/jsonl-reader";
+import { queries } from "@/lib/db";
+
+interface RouteParams {
+  params: Promise<{ name: string }>;
+}
+
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { name } = await params;
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const offset = parseInt(searchParams.get("offset") || "0", 10);
+    const includeHidden = searchParams.get("includeHidden") === "true";
+
+    const { sessions, total } = await getSessions(name, limit + 50, 0);
+
+    const hiddenItems = await queries.getHiddenItems("session");
+    const hiddenSet = new Set(hiddenItems.map((h) => h.item_id));
+
+    const enriched = sessions.map((s) => ({
+      ...s,
+      hidden: hiddenSet.has(s.sessionId),
+    }));
+
+    const filtered = includeHidden
+      ? enriched
+      : enriched.filter((s) => !s.hidden);
+
+    const paginated = filtered.slice(offset, offset + limit);
+
+    return NextResponse.json({
+      sessions: paginated,
+      total: filtered.length,
+      hasMore: offset + limit < filtered.length,
+    });
+  } catch (error) {
+    console.error("Error fetching sessions:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch sessions" },
+      { status: 500 }
+    );
+  }
+}

@@ -418,4 +418,27 @@ export const queries = {
 
   deleteDevServersByProject: (projectId: string) =>
     execute(`DELETE FROM dev_servers WHERE project_id = $1`, [projectId]),
+
+  getHiddenItems: (itemType: string) =>
+    query<{ item_id: string }>(
+      `SELECT item_id FROM hidden_items WHERE item_type = $1`,
+      [itemType]
+    ),
+
+  getAllHiddenItems: () =>
+    query<{ item_type: string; item_id: string }>(
+      `SELECT item_type, item_id FROM hidden_items`
+    ),
+
+  hideItem: (itemType: string, itemId: string) =>
+    execute(
+      `INSERT INTO hidden_items (item_type, item_id) VALUES ($1, $2) ON CONFLICT (item_type, item_id) DO NOTHING`,
+      [itemType, itemId]
+    ),
+
+  unhideItem: (itemType: string, itemId: string) =>
+    execute(
+      `DELETE FROM hidden_items WHERE item_type = $1 AND item_id = $2`,
+      [itemType, itemId]
+    ),
 };

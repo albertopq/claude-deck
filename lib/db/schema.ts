@@ -99,6 +99,16 @@ export async function createSchema(pool: Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_project_repositories_project ON project_repositories(project_id);
     CREATE INDEX IF NOT EXISTS idx_dev_servers_project ON dev_servers(project_id);
 
+    CREATE TABLE IF NOT EXISTS hidden_items (
+      id SERIAL PRIMARY KEY,
+      item_type TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      hidden_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(item_type, item_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_hidden_items_type ON hidden_items(item_type);
+
     INSERT INTO projects (id, name, working_directory, is_uncategorized, sort_order)
     VALUES ('uncategorized', 'Uncategorized', '~', TRUE, 999999)
     ON CONFLICT (id) DO NOTHING;
