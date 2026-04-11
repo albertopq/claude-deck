@@ -9,13 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FolderPicker } from "@/components/FolderPicker";
-import { useHomePath } from "@/hooks/useHomePath";
-
 import { useNewSessionForm } from "./hooks/useNewSessionForm";
 import { AgentSelector } from "./AgentSelector";
-import { WorkingDirectoryInput } from "./WorkingDirectoryInput";
-import { WorktreeSection } from "./WorktreeSection";
 import { CreatingOverlay } from "./CreatingOverlay";
 import type { NewSessionDialogProps } from "./NewSessionDialog.types";
 
@@ -27,7 +22,6 @@ export function NewSessionDialog({
   onCreated,
   onCreateProject,
 }: NewSessionDialogProps) {
-  const { toTildePath } = useHomePath();
   const form = useNewSessionForm({
     open,
     projects,
@@ -82,26 +76,6 @@ export function NewSessionDialog({
               />
             </div>
 
-            <WorkingDirectoryInput
-              value={form.workingDirectory}
-              onChange={form.setWorkingDirectory}
-              gitInfo={form.gitInfo}
-              checkingGit={form.checkingGit}
-              onBrowse={() => form.setShowDirectoryPicker(true)}
-            />
-
-            {form.gitInfo?.isGitRepo && (
-              <WorktreeSection
-                gitInfo={form.gitInfo}
-                useWorktree={form.useWorktree}
-                onUseWorktreeChange={form.setUseWorktree}
-                featureName={form.featureName}
-                onFeatureNameChange={form.setFeatureName}
-                baseBranch={form.baseBranch}
-                onBaseBranchChange={form.setBaseBranch}
-              />
-            )}
-
             {form.error && <p className="text-sm text-red-500">{form.error}</p>}
 
             <DialogFooter>
@@ -127,16 +101,6 @@ export function NewSessionDialog({
         </DialogContent>
       </Dialog>
 
-      {form.showDirectoryPicker && (
-        <FolderPicker
-          initialPath={form.workingDirectory || "~"}
-          onSelect={(path) => {
-            form.setWorkingDirectory(toTildePath(path));
-            form.setShowDirectoryPicker(false);
-          }}
-          onClose={() => form.setShowDirectoryPicker(false)}
-        />
-      )}
     </>
   );
 }
