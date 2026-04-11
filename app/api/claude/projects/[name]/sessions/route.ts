@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessions } from "@/lib/claude/jsonl-reader";
 import { queries } from "@/lib/db";
+import fs from "fs";
+import path from "path";
+
+function resolveValidCwd(cwd: string | null): string {
+  if (!cwd) return process.env.HOME || "/";
+  let dir = cwd;
+  while (dir && dir !== "/" && !fs.existsSync(dir)) {
+    dir = path.dirname(dir);
+  }
+  return dir || process.env.HOME || "/";
+}
 
 interface RouteParams {
   params: Promise<{ name: string }>;
@@ -21,6 +32,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const enriched = sessions.map((s) => ({
       ...s,
+      cwd: resolveValidCwd(s.cwd),
       hidden: hiddenSet.has(s.sessionId),
     }));
 

@@ -302,6 +302,12 @@ function HomeContent() {
       const activeTab = getActiveTab(paneId);
       const isInTmux = !!activeTab?.attachedTmux;
 
+      const tmuxName = `claude-${claudeSessionId}`;
+      const tmuxCmd = [
+        `tmux attach -t ${tmuxName} 2>/dev/null`,
+        `tmux new -s ${tmuxName} -c "${cwd}" "claude --resume ${claudeSessionId}"`,
+      ].join(" || ");
+
       if (isInTmux) {
         terminal.sendInput("\x02d");
       }
@@ -310,17 +316,15 @@ function HomeContent() {
         () => {
           terminal.sendInput("\x03");
           setTimeout(() => {
-            const parent = cwd.split("/").slice(0, -1).join("/") || "~";
-            terminal.sendCommand(
-              `cd "${cwd}" 2>/dev/null || cd "${parent}" 2>/dev/null || cd ~; claude --resume ${claudeSessionId}`
-            );
+            terminal.sendCommand(tmuxCmd);
+            attachSession(paneId, claudeSessionId, tmuxName);
             terminal.focus();
           }, 50);
         },
         isInTmux ? 100 : 0
       );
     },
-    [getTerminalWithFallback, getActiveTab]
+    [getTerminalWithFallback, getActiveTab, attachSession]
   );
 
   // Notification click handler
