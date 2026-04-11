@@ -1,85 +1,45 @@
-import Database from "better-sqlite3";
-import path from "path";
-import fs from "fs";
+import { Pool } from "pg";
 import { createSchema } from "./schema";
 import { runMigrations } from "./migrations";
 
-// Re-export types and queries
 export * from "./types";
 export { queries } from "./queries";
 
-const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), "agent-os.db");
-const LOCK_PATH = DB_PATH + ".init-lock";
+const DATABASE_URL =
+  process.env.DATABASE_URL || "postgresql://localhost:5432/agent_os";
 
-// Simple file-based lock for initialization
-function withInitLock<T>(fn: () => T): T {
-  const maxWait = 10000; // 10 seconds
-  const start = Date.now();
+let _pool: Pool | null = null;
 
-  // Wait for lock to be available
-  while (fs.existsSync(LOCK_PATH)) {
-    if (Date.now() - start > maxWait) {
-      // Stale lock, remove it
-      try {
-        fs.unlinkSync(LOCK_PATH);
-      } catch {}
-      break;
-    }
-    // Busy wait (sync is fine here, this is initialization)
-    const waitUntil = Date.now() + 100;
-    while (Date.now() < waitUntil) {}
+export function getPool(): Pool {
+  if (!_pool) {
+    _pool = new Pool({
+      connectionString: DATABASE_URL,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
   }
-
-  // Acquire lock
-  try {
-    fs.writeFileSync(LOCK_PATH, String(process.pid));
-  } catch {
-    // Another process got it first, wait and retry
-    return withInitLock(fn);
-  }
-
-  try {
-    return fn();
-  } finally {
-    // Release lock
-    try {
-      fs.unlinkSync(LOCK_PATH);
-    } catch {}
-  }
+  return _pool;
 }
 
-// Initialize database with schema
-export function initDb(): Database.Database {
-  return withInitLock(() => {
-    const db = new Database(DB_PATH, { timeout: 10000 });
+let _initialized = false;
 
-    // Enable WAL mode for better concurrency
-    db.pragma("journal_mode = WAL");
-    db.pragma("busy_timeout = 10000");
+export async function initDb(): Promise<Pool> {
+  const pool = getPool();
 
-    // Create tables and indexes
-    createSchema(db);
-
-    // Run migrations
-    runMigrations(db);
-
-    return db;
-  });
-}
-
-// Singleton database instance
-let _db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (!_db) {
-    _db = initDb();
+  if (!_initialized) {
+    await createSchema(pool);
+    await runMigrations(pool);
+    _initialized = true;
   }
-  return _db;
+
+  return pool;
 }
 
-// Lazy getter - don't initialize on import
-export const db = new Proxy({} as Database.Database, {
-  get(_, prop) {
-    return (getDb() as unknown as Record<string | symbol, unknown>)[prop];
-  },
-});
+export async function closeDb(): Promise<void> {
+  if (_pool) {
+    await _pool.end();
+    _pool = null;
+    _initialized = false;
+  }
+}

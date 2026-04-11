@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProjectRepositories, getProject } from "@/lib/projects";
 import { getMultiRepoGitStatus } from "@/lib/multi-repo-git";
 import { expandPath } from "@/lib/git-status";
+import type { ProjectRepository } from "@/lib/db";
 
-// GET /api/git/multi-status - Get aggregated git status for a project's repositories
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -17,20 +17,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let repositories: ReturnType<typeof getProjectRepositories> = [];
+    let repositories: ProjectRepository[] = [];
 
     if (projectId) {
-      const project = getProject(projectId);
+      const project = await getProject(projectId);
       if (!project) {
         return NextResponse.json(
           { error: "Project not found" },
           { status: 404 }
         );
       }
-      repositories = getProjectRepositories(projectId);
+      repositories = await getProjectRepositories(projectId);
     }
 
-    // Get aggregated status
     const expandedFallback = fallbackPath
       ? expandPath(fallbackPath)
       : undefined;

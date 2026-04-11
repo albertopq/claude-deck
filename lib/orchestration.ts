@@ -8,7 +8,7 @@
 import { randomUUID } from "crypto";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { db, queries, type Session } from "./db";
+import { queries, type Session } from "./db";
 import { createWorktree, deleteWorktree } from "./worktrees";
 import { setupWorktree } from "./env-setup";
 import { type AgentType, getProvider } from "./providers";
@@ -132,7 +132,7 @@ export async function spawnWorker(
 
   // Create session in database
   const tmuxName = `${provider.id}-${sessionId}`;
-  queries.createWorkerSession(db).run(
+  await queries.createWorkerSession(
     sessionId,
     sessionName,
     tmuxName,
@@ -147,7 +147,7 @@ export async function spawnWorker(
 
   // Update worktree info if created
   if (worktreePath) {
-    queries.updateSessionWorktree(db).run(
+    await queries.updateSessionWorktree(
       worktreePath,
       branchName,
       "main", // base_branch
@@ -249,13 +249,13 @@ export async function spawnWorker(
     }
 
     // Update worker status to running
-    queries.updateWorkerStatus(db).run("running", sessionId);
+    await queries.updateWorkerStatus("running", sessionId);
   } catch (error) {
     console.error("Failed to start worker session:", error);
-    queries.updateWorkerStatus(db).run("failed", sessionId);
+    await queries.updateWorkerStatus("failed", sessionId);
   }
 
-  return queries.getSession(db).get(sessionId) as Session;
+  return (await queries.getSession(sessionId))!;
 }
 
 /**
@@ -264,9 +264,7 @@ export async function spawnWorker(
 export async function getWorkers(
   conductorSessionId: string
 ): Promise<WorkerInfo[]> {
-  const workers = queries
-    .getWorkersByConductor(db)
-    .all(conductorSessionId) as Session[];
+  const workers = await queries.getWorkersByConductor(conductorSessionId);
 
   // Get live status for each worker
   const workerInfos: WorkerInfo[] = [];
@@ -317,7 +315,7 @@ export async function getWorkerOutput(
   workerId: string,
   lines: number = 50
 ): Promise<string> {
-  const session = queries.getSession(db).get(workerId) as Session | undefined;
+  const session = await queries.getSession(workerId);
   if (!session) {
     throw new Error(`Worker ${workerId} not found`);
   }
@@ -342,7 +340,7 @@ export async function sendToWorker(
   workerId: string,
   message: string
 ): Promise<boolean> {
-  const session = queries.getSession(db).get(workerId) as Session | undefined;
+  const session = await queries.getSession(workerId);
   if (!session) {
     throw new Error(`Worker ${workerId} not found`);
   }
@@ -364,15 +362,15 @@ export async function sendToWorker(
 /**
  * Mark a worker as completed
  */
-export function completeWorker(workerId: string): void {
-  queries.updateWorkerStatus(db).run("completed", workerId);
+export async function completeWorker(workerId: string): Promise<void> {
+  await queries.updateWorkerStatus("completed", workerId);
 }
 
 /**
  * Mark a worker as failed
  */
-export function failWorker(workerId: string): void {
-  queries.updateWorkerStatus(db).run("failed", workerId);
+export async function failWorker(workerId: string): Promise<void> {
+  await queries.updateWorkerStatus("failed", workerId);
 }
 
 /**
@@ -382,7 +380,7 @@ export async function killWorker(
   workerId: string,
   cleanupWorktree: boolean = false
 ): Promise<void> {
-  const session = queries.getSession(db).get(workerId) as Session | undefined;
+  const session = await queries.getSession(workerId);
   if (!session) {
     return;
   }
@@ -422,7 +420,7 @@ export async function killWorker(
     }
   }
 
-  queries.updateWorkerStatus(db).run("failed", workerId);
+  await queries.updateWorkerStatus("failed", workerId);
 }
 
 /**

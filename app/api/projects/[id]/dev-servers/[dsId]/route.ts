@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateProjectDevServer, deleteProjectDevServer } from "@/lib/projects";
-import { queries, db, type ProjectDevServer } from "@/lib/db";
+import { queries, type ProjectDevServer } from "@/lib/db";
 
 interface RouteParams {
   params: Promise<{ id: string; dsId: string }>;
@@ -11,9 +11,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { dsId } = await params;
 
-    const existing = queries.getProjectDevServer(db).get(dsId) as
-      | ProjectDevServer
-      | undefined;
+    const existing = await queries.getProjectDevServer(dsId);
     if (!existing) {
       return NextResponse.json(
         { error: "Dev server config not found" },
@@ -24,7 +22,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { name, type, command, port, portEnvVar, sortOrder } = body;
 
-    const devServer = updateProjectDevServer(dsId, {
+    const devServer = await updateProjectDevServer(dsId, {
       name,
       type,
       command,
@@ -48,9 +46,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { dsId } = await params;
 
-    const existing = queries.getProjectDevServer(db).get(dsId) as
-      | ProjectDevServer
-      | undefined;
+    const existing = await queries.getProjectDevServer(dsId);
     if (!existing) {
       return NextResponse.json(
         { error: "Dev server config not found" },
@@ -58,7 +54,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    deleteProjectDevServer(dsId);
+    await deleteProjectDevServer(dsId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting dev server config:", error);

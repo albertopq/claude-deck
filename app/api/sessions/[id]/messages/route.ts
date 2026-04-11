@@ -1,73 +1,59 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, queries, type Message } from "@/lib/db";
+import { queries } from "@/lib/db";
+import {
+  getSessionMessages,
+  getClaudeProjectNames,
+  getSessions,
+} from "@/lib/claude/jsonl-reader";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// GET /api/sessions/[id]/messages - Get all messages for a session
+async function findProjectForSession(
+  sessionId: string
+): Promise<string | null> {
+  const projectNames = getClaudeProjectNames();
+  for (const projectName of projectNames) {
+    const { sessions } = await getSessions(projectName, 100, 0);
+    if (sessions.some((s) => s.sessionId === sessionId)) {
+      return projectName;
+    }
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "100", 10);
+    const offset = parseInt(searchParams.get("offset") || "0", 10);
 
-    // Verify session exists
-    const session = queries.getSession(db).get(id);
+    const session = await queries.getSession(id);
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    const messages = queries.getSessionMessages(db).all(id) as Message[];
+    const claudeSessionId = session.claude_session_id || id;
+    const projectName = await findProjectForSession(claudeSessionId);
 
-    return NextResponse.json({ messages });
+    if (!projectName) {
+      return NextResponse.json({ messages: [], total: 0, hasMore: false });
+    }
+
+    const result = await getSessionMessages(
+      projectName,
+      claudeSessionId,
+      limit,
+      offset
+    );
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Error fetching messages:", error);
     return NextResponse.json(
       { error: "Failed to fetch messages" },
-      { status: 500 }
-    );
-  }
-}
-
-// POST /api/sessions/[id]/messages - Add a message (for user messages)
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
-    const { role, content } = body;
-
-    if (!role || !content) {
-      return NextResponse.json(
-        { error: "Role and content are required" },
-        { status: 400 }
-      );
-    }
-
-    const db = getDb();
-
-    // Verify session exists
-    const session = queries.getSession(db).get(id);
-    if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
-    }
-
-    const result = queries
-      .createMessage(db)
-      .run(id, role, JSON.stringify([{ type: "text", text: content }]), null);
-
-    return NextResponse.json(
-      {
-        id: result.lastInsertRowid,
-        session_id: id,
-        role,
-        content,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Error creating message:", error);
-    return NextResponse.json(
-      { error: "Failed to create message" },
       { status: 500 }
     );
   }

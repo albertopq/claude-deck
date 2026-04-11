@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, queries, type Group } from "@/lib/db";
+import { queries, type Group } from "@/lib/db";
 
 // GET /api/groups/[...path] - Get a single group
 export async function GET(
@@ -10,7 +10,7 @@ export async function GET(
   const path = pathParts.join("/");
 
   try {
-    const group = queries.getGroup(db).get(path) as Group | undefined;
+    const group = await queries.getGroup(path) as Group | undefined;
 
     if (!group) {
       return NextResponse.json({ error: "Group not found" }, { status: 404 });
@@ -41,7 +41,7 @@ export async function PATCH(
     const { name, expanded, sort_order } = body;
 
     // Check if group exists
-    const group = queries.getGroup(db).get(path) as Group | undefined;
+    const group = await queries.getGroup(path) as Group | undefined;
     if (!group) {
       return NextResponse.json({ error: "Group not found" }, { status: 404 });
     }
@@ -56,20 +56,20 @@ export async function PATCH(
 
     // Update name
     if (name !== undefined) {
-      queries.updateGroupName(db).run(name, path);
+      await queries.updateGroupName(name, path);
     }
 
     // Update expanded state
     if (expanded !== undefined) {
-      queries.updateGroupExpanded(db).run(expanded ? 1 : 0, path);
+      await queries.updateGroupExpanded(!!expanded, path);
     }
 
     // Update sort order
     if (sort_order !== undefined) {
-      queries.updateGroupOrder(db).run(sort_order, path);
+      await queries.updateGroupOrder(sort_order, path);
     }
 
-    const updatedGroup = queries.getGroup(db).get(path) as Group;
+    const updatedGroup = await queries.getGroup(path) as Group;
     return NextResponse.json({
       group: { ...updatedGroup, expanded: Boolean(updatedGroup.expanded) },
     });
@@ -100,7 +100,7 @@ export async function DELETE(
     }
 
     // Check if group exists
-    const group = queries.getGroup(db).get(path) as Group | undefined;
+    const group = await queries.getGroup(path) as Group | undefined;
     if (!group) {
       return NextResponse.json({ error: "Group not found" }, { status: 404 });
     }
@@ -112,18 +112,18 @@ export async function DELETE(
       pathParts2.length > 0 ? pathParts2.join("/") : "sessions";
 
     // Move all sessions in this group to parent
-    queries.moveSessionsToGroup(db).run(parentPath, path);
+    await queries.moveSessionsToGroup(parentPath, path);
 
     // Also move sessions from any subgroups
-    const allGroups = queries.getAllGroups(db).all() as Group[];
+    const allGroups = await queries.getAllGroups() as Group[];
     const subgroups = allGroups.filter((g) => g.path.startsWith(path + "/"));
     for (const subgroup of subgroups) {
-      queries.moveSessionsToGroup(db).run(parentPath, subgroup.path);
-      queries.deleteGroup(db).run(subgroup.path);
+      await queries.moveSessionsToGroup(parentPath, subgroup.path);
+      await queries.deleteGroup(subgroup.path);
     }
 
     // Delete the group
-    queries.deleteGroup(db).run(path);
+    await queries.deleteGroup(path);
 
     return NextResponse.json({ success: true, movedTo: parentPath });
   } catch (error) {

@@ -13,13 +13,13 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const project = getProject(id);
+    const project = await getProject(id);
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const repositories = getProjectRepositories(id);
+    const repositories = await getProjectRepositories(id);
     return NextResponse.json({ repositories });
   } catch (error) {
     console.error("Error fetching repositories:", error);
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const project = getProject(id);
+    const project = await getProject(id);
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });

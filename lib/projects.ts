@@ -11,7 +11,6 @@ import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import {
-  db,
   queries,
   type Project,
   type ProjectDevServer,
@@ -80,26 +79,24 @@ function generateRepositoryId(): string {
 /**
  * Create a new project
  */
-export function createProject(
+export async function createProject(
   opts: CreateProjectOptions
-): ProjectWithRepositories {
+): Promise<ProjectWithRepositories> {
   const id = generateProjectId();
 
   // Get next sort order
-  const projects = queries.getAllProjects(db).all() as Project[];
+  const projects = await queries.getAllProjects();
   const maxOrder = projects.reduce((max, p) => Math.max(max, p.sort_order), 0);
 
-  queries
-    .createProject(db)
-    .run(
-      id,
-      opts.name,
-      opts.workingDirectory,
-      opts.agentType || "claude",
-      opts.defaultModel || "sonnet",
-      opts.initialPrompt || null,
-      maxOrder + 1
-    );
+  await queries.createProject(
+    id,
+    opts.name,
+    opts.workingDirectory,
+    opts.agentType || "claude",
+    opts.defaultModel || "sonnet",
+    opts.initialPrompt || null,
+    maxOrder + 1
+  );
 
   // Create dev server configs if provided
   const devServers: ProjectDevServer[] = [];
@@ -107,18 +104,16 @@ export function createProject(
     for (let i = 0; i < opts.devServers.length; i++) {
       const ds = opts.devServers[i];
       const dsId = generateDevServerId();
-      queries
-        .createProjectDevServer(db)
-        .run(
-          dsId,
-          id,
-          ds.name,
-          ds.type,
-          ds.command,
-          ds.port || null,
-          ds.portEnvVar || null,
-          i
-        );
+      await queries.createProjectDevServer(
+        dsId,
+        id,
+        ds.name,
+        ds.type,
+        ds.command,
+        ds.port || null,
+        ds.portEnvVar || null,
+        i
+      );
       devServers.push({
         id: dsId,
         project_id: id,
@@ -132,11 +127,11 @@ export function createProject(
     }
   }
 
-  const project = queries.getProject(db).get(id) as Project;
+  const project = await queries.getProject(id);
   return {
-    ...project,
-    expanded: Boolean(project.expanded),
-    is_uncategorized: Boolean(project.is_uncategorized),
+    ...project!,
+    expanded: Boolean(project!.expanded),
+    is_uncategorized: Boolean(project!.is_uncategorized),
     devServers,
     repositories: [],
   };
@@ -145,8 +140,8 @@ export function createProject(
 /**
  * Get a project by ID
  */
-export function getProject(id: string): Project | undefined {
-  const project = queries.getProject(db).get(id) as Project | undefined;
+export async function getProject(id: string): Promise<Project | undefined> {
+  const project = await queries.getProject(id);
   if (!project) return undefined;
   return {
     ...project,
@@ -158,19 +153,14 @@ export function getProject(id: string): Project | undefined {
 /**
  * Get a project with its dev server configurations
  */
-export function getProjectWithDevServers(
+export async function getProjectWithDevServers(
   id: string
-): ProjectWithRepositories | undefined {
-  const project = getProject(id);
+): Promise<ProjectWithRepositories | undefined> {
+  const project = await getProject(id);
   if (!project) return undefined;
 
-  const devServers = queries
-    .getProjectDevServers(db)
-    .all(id) as ProjectDevServer[];
-  const rawRepos = queries.getProjectRepositories(db).all(id) as (Omit<
-    ProjectRepository,
-    "is_primary"
-  > & { is_primary: number })[];
+  const devServers = await queries.getProjectDevServers(id);
+  const rawRepos = await queries.getProjectRepositories(id);
   const repositories = rawRepos.map((r) => ({
     ...r,
     is_primary: Boolean(r.is_primary),
@@ -185,8 +175,8 @@ export function getProjectWithDevServers(
 /**
  * Get all projects (sorted by sort_order, with uncategorized last)
  */
-export function getAllProjects(): Project[] {
-  const projects = queries.getAllProjects(db).all() as Project[];
+export async function getAllProjects(): Promise<Project[]> {
+  const projects = await queries.getAllProjects();
   return projects.map((p) => ({
     ...p,
     expanded: Boolean(p.expanded),
@@ -197,34 +187,29 @@ export function getAllProjects(): Project[] {
 /**
  * Get all projects with their dev server configurations
  */
-export function getAllProjectsWithDevServers(): ProjectWithRepositories[] {
-  const projects = getAllProjects();
-  return projects.map((p) => {
-    const devServers = queries
-      .getProjectDevServers(db)
-      .all(p.id) as ProjectDevServer[];
-    const rawRepos = queries.getProjectRepositories(db).all(p.id) as (Omit<
-      ProjectRepository,
-      "is_primary"
-    > & {
-      is_primary: number;
-    })[];
+export async function getAllProjectsWithDevServers(): Promise<ProjectWithRepositories[]> {
+  const projects = await getAllProjects();
+  const result: ProjectWithRepositories[] = [];
+  for (const p of projects) {
+    const devServers = await queries.getProjectDevServers(p.id);
+    const rawRepos = await queries.getProjectRepositories(p.id);
     const repositories = rawRepos.map((r) => ({
       ...r,
       is_primary: Boolean(r.is_primary),
     }));
-    return {
+    result.push({
       ...p,
       devServers,
       repositories,
-    };
-  });
+    });
+  }
+  return result;
 }
 
 /**
  * Update a project's settings
  */
-export function updateProject(
+export async function updateProject(
   id: string,
   updates: Partial<
     Pick<
@@ -236,22 +221,20 @@ export function updateProject(
       | "initial_prompt"
     >
   >
-): Project | undefined {
-  const project = getProject(id);
+): Promise<Project | undefined> {
+  const project = await getProject(id);
   if (!project || project.is_uncategorized) return undefined;
 
-  queries
-    .updateProject(db)
-    .run(
-      updates.name ?? project.name,
-      updates.working_directory ?? project.working_directory,
-      updates.agent_type ?? project.agent_type,
-      updates.default_model ?? project.default_model,
-      updates.initial_prompt !== undefined
-        ? updates.initial_prompt
-        : project.initial_prompt,
-      id
-    );
+  await queries.updateProject(
+    updates.name ?? project.name,
+    updates.working_directory ?? project.working_directory,
+    updates.agent_type ?? project.agent_type,
+    updates.default_model ?? project.default_model,
+    updates.initial_prompt !== undefined
+      ? updates.initial_prompt
+      : project.initial_prompt,
+    id
+  );
 
   return getProject(id);
 }
@@ -259,117 +242,109 @@ export function updateProject(
 /**
  * Toggle project expanded state
  */
-export function toggleProjectExpanded(id: string, expanded: boolean): void {
-  queries.updateProjectExpanded(db).run(expanded ? 1 : 0, id);
+export async function toggleProjectExpanded(id: string, expanded: boolean): Promise<void> {
+  await queries.updateProjectExpanded(expanded, id);
 }
 
 /**
  * Delete a project (moves sessions to Uncategorized)
  */
-export function deleteProject(id: string): boolean {
-  const project = getProject(id);
+export async function deleteProject(id: string): Promise<boolean> {
+  const project = await getProject(id);
   if (!project || project.is_uncategorized) return false;
 
   // Move all sessions to Uncategorized
-  const sessions = queries.getSessionsByProject(db).all(id) as Session[];
+  const sessions = await queries.getSessionsByProject(id);
   for (const session of sessions) {
-    queries.updateSessionProject(db).run("uncategorized", session.id);
+    await queries.updateSessionProject("uncategorized", session.id);
   }
 
   // Delete dev server instances
-  queries.deleteDevServersByProject(db).run(id);
+  await queries.deleteDevServersByProject(id);
 
   // Delete dev server configs (templates)
-  queries.deleteProjectDevServers(db).run(id);
+  await queries.deleteProjectDevServers(id);
 
   // Delete project
-  queries.deleteProject(db).run(id);
+  await queries.deleteProject(id);
   return true;
 }
 
 /**
  * Get sessions for a project
  */
-export function getProjectSessions(projectId: string): Session[] {
-  return queries.getSessionsByProject(db).all(projectId) as Session[];
+export async function getProjectSessions(projectId: string): Promise<Session[]> {
+  return queries.getSessionsByProject(projectId);
 }
 
 /**
  * Move a session to a project
  */
-export function moveSessionToProject(
+export async function moveSessionToProject(
   sessionId: string,
   projectId: string
-): void {
-  queries.updateSessionProject(db).run(projectId, sessionId);
+): Promise<void> {
+  await queries.updateSessionProject(projectId, sessionId);
 }
 
 /**
  * Add a dev server configuration to a project
  */
-export function addProjectDevServer(
+export async function addProjectDevServer(
   projectId: string,
   opts: CreateDevServerOptions
-): ProjectDevServer {
+): Promise<ProjectDevServer> {
   const id = generateDevServerId();
 
   // Get next sort order
-  const existing = queries
-    .getProjectDevServers(db)
-    .all(projectId) as ProjectDevServer[];
+  const existing = await queries.getProjectDevServers(projectId);
   const maxOrder = existing.reduce(
     (max, ds) => Math.max(max, ds.sort_order),
     -1
   );
 
-  queries
-    .createProjectDevServer(db)
-    .run(
-      id,
-      projectId,
-      opts.name,
-      opts.type,
-      opts.command,
-      opts.port || null,
-      opts.portEnvVar || null,
-      maxOrder + 1
-    );
+  await queries.createProjectDevServer(
+    id,
+    projectId,
+    opts.name,
+    opts.type,
+    opts.command,
+    opts.port || null,
+    opts.portEnvVar || null,
+    maxOrder + 1
+  );
 
-  return queries.getProjectDevServer(db).get(id) as ProjectDevServer;
+  return (await queries.getProjectDevServer(id))!;
 }
 
 /**
  * Update a dev server configuration
  */
-export function updateProjectDevServer(
+export async function updateProjectDevServer(
   id: string,
   updates: Partial<CreateDevServerOptions & { sortOrder?: number }>
-): ProjectDevServer | undefined {
-  const existing = queries.getProjectDevServer(db).get(id) as
-    | ProjectDevServer
-    | undefined;
+): Promise<ProjectDevServer | undefined> {
+  const existing = await queries.getProjectDevServer(id);
   if (!existing) return undefined;
 
-  queries
-    .updateProjectDevServer(db)
-    .run(
-      updates.name ?? existing.name,
-      updates.type ?? existing.type,
-      updates.command ?? existing.command,
-      updates.port ?? existing.port,
-      updates.portEnvVar ?? existing.port_env_var,
-      updates.sortOrder ?? existing.sort_order,
-      id
-    );
+  await queries.updateProjectDevServer(
+    updates.name ?? existing.name,
+    updates.type ?? existing.type,
+    updates.command ?? existing.command,
+    updates.port ?? existing.port,
+    updates.portEnvVar ?? existing.port_env_var,
+    updates.sortOrder ?? existing.sort_order,
+    id
+  );
 
-  return queries.getProjectDevServer(db).get(id) as ProjectDevServer;
+  return (await queries.getProjectDevServer(id))!;
 }
 
 /**
  * Delete a dev server configuration
  */
-export function deleteProjectDevServer(id: string): void {
-  queries.deleteProjectDevServer(db).run(id);
+export async function deleteProjectDevServer(id: string): Promise<void> {
+  await queries.deleteProjectDevServer(id);
 }
 
 /**
@@ -503,13 +478,8 @@ export function validateWorkingDirectory(dir: string): boolean {
 /**
  * Get repositories for a project
  */
-export function getProjectRepositories(projectId: string): ProjectRepository[] {
-  const rawRepos = queries.getProjectRepositories(db).all(projectId) as (Omit<
-    ProjectRepository,
-    "is_primary"
-  > & {
-    is_primary: number;
-  })[];
+export async function getProjectRepositories(projectId: string): Promise<ProjectRepository[]> {
+  const rawRepos = await queries.getProjectRepositories(projectId);
   return rawRepos.map((r) => ({
     ...r,
     is_primary: Boolean(r.is_primary),
@@ -519,14 +489,14 @@ export function getProjectRepositories(projectId: string): ProjectRepository[] {
 /**
  * Add a repository to a project
  */
-export function addProjectRepository(
+export async function addProjectRepository(
   projectId: string,
   opts: CreateRepositoryOptions
-): ProjectRepository {
+): Promise<ProjectRepository> {
   const id = generateRepositoryId();
 
   // Get next sort order
-  const existing = getProjectRepositories(projectId);
+  const existing = await getProjectRepositories(projectId);
   const maxOrder = existing.reduce(
     (max, repo) => Math.max(max, repo.sort_order),
     -1
@@ -538,21 +508,18 @@ export function addProjectRepository(
     // Clear primary flag from other repositories
     for (const repo of existing) {
       if (repo.is_primary) {
-        queries
-          .updateProjectRepository(db)
-          .run(repo.name, repo.path, 0, repo.sort_order, repo.id);
+        await queries.updateProjectRepository(
+          repo.name, repo.path, false, repo.sort_order, repo.id
+        );
       }
     }
   }
 
-  queries
-    .createProjectRepository(db)
-    .run(id, projectId, opts.name, opts.path, isPrimary ? 1 : 0, maxOrder + 1);
+  await queries.createProjectRepository(
+    id, projectId, opts.name, opts.path, isPrimary, maxOrder + 1
+  );
 
-  const raw = queries.getProjectRepository(db).get(id) as Omit<
-    ProjectRepository,
-    "is_primary"
-  > & { is_primary: number };
+  const raw = (await queries.getProjectRepository(id))!;
   return {
     ...raw,
     is_primary: Boolean(raw.is_primary),
@@ -562,13 +529,11 @@ export function addProjectRepository(
 /**
  * Update a repository
  */
-export function updateProjectRepository(
+export async function updateProjectRepository(
   id: string,
   updates: Partial<CreateRepositoryOptions & { sortOrder?: number }>
-): ProjectRepository | undefined {
-  const raw = queries.getProjectRepository(db).get(id) as
-    | (Omit<ProjectRepository, "is_primary"> & { is_primary: number })
-    | undefined;
+): Promise<ProjectRepository | undefined> {
+  const raw = await queries.getProjectRepository(id);
   if (!raw) return undefined;
 
   const existing = {
@@ -580,30 +545,25 @@ export function updateProjectRepository(
   const newIsPrimary =
     updates.isPrimary !== undefined ? updates.isPrimary : existing.is_primary;
   if (newIsPrimary && !existing.is_primary) {
-    const allRepos = getProjectRepositories(existing.project_id);
+    const allRepos = await getProjectRepositories(existing.project_id);
     for (const repo of allRepos) {
       if (repo.is_primary && repo.id !== id) {
-        queries
-          .updateProjectRepository(db)
-          .run(repo.name, repo.path, 0, repo.sort_order, repo.id);
+        await queries.updateProjectRepository(
+          repo.name, repo.path, false, repo.sort_order, repo.id
+        );
       }
     }
   }
 
-  queries
-    .updateProjectRepository(db)
-    .run(
-      updates.name ?? existing.name,
-      updates.path ?? existing.path,
-      newIsPrimary ? 1 : 0,
-      updates.sortOrder ?? existing.sort_order,
-      id
-    );
+  await queries.updateProjectRepository(
+    updates.name ?? existing.name,
+    updates.path ?? existing.path,
+    newIsPrimary,
+    updates.sortOrder ?? existing.sort_order,
+    id
+  );
 
-  const updatedRaw = queries.getProjectRepository(db).get(id) as Omit<
-    ProjectRepository,
-    "is_primary"
-  > & { is_primary: number };
+  const updatedRaw = (await queries.getProjectRepository(id))!;
   return {
     ...updatedRaw,
     is_primary: Boolean(updatedRaw.is_primary),
@@ -613,6 +573,6 @@ export function updateProjectRepository(
 /**
  * Delete a repository
  */
-export function deleteProjectRepository(id: string): void {
-  queries.deleteProjectRepository(db).run(id);
+export async function deleteProjectRepository(id: string): Promise<void> {
+  await queries.deleteProjectRepository(id);
 }

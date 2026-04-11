@@ -6,7 +6,7 @@
 
 import { exec } from "child_process";
 import { promisify } from "util";
-import { getDb } from "./db";
+import { getPool } from "./db";
 
 const execAsync = promisify(exec);
 
@@ -33,21 +33,18 @@ export async function isPortInUse(port: number): Promise<boolean> {
 /**
  * Get all ports currently assigned to sessions
  */
-export function getAssignedPorts(): number[] {
-  const db = getDb();
-  const sessions = db
-    .prepare(
-      "SELECT dev_server_port FROM sessions WHERE dev_server_port IS NOT NULL"
-    )
-    .all() as Array<{ dev_server_port: number }>;
-  return sessions.map((s) => s.dev_server_port);
+export async function getAssignedPorts(): Promise<number[]> {
+  const { rows } = await getPool().query(
+    "SELECT dev_server_port FROM sessions WHERE dev_server_port IS NOT NULL"
+  );
+  return (rows as Array<{ dev_server_port: number }>).map((s) => s.dev_server_port);
 }
 
 /**
  * Find the next available port
  */
 export async function findAvailablePort(): Promise<number> {
-  const assignedPorts = new Set(getAssignedPorts());
+  const assignedPorts = new Set(await getAssignedPorts());
 
   for (let port = BASE_PORT; port <= MAX_PORT; port += PORT_INCREMENT) {
     // Skip if already assigned to a session
@@ -70,10 +67,9 @@ export async function findAvailablePort(): Promise<number> {
  */
 export async function assignPort(sessionId: string): Promise<number> {
   const port = await findAvailablePort();
-  const db = getDb();
-  db.prepare("UPDATE sessions SET dev_server_port = ? WHERE id = ?").run(
-    port,
-    sessionId
+  await getPool().query(
+    "UPDATE sessions SET dev_server_port = $1 WHERE id = $2",
+    [port, sessionId]
   );
   return port;
 }
@@ -81,20 +77,21 @@ export async function assignPort(sessionId: string): Promise<number> {
 /**
  * Release a port from a session
  */
-export function releasePort(sessionId: string): void {
-  const db = getDb();
-  db.prepare("UPDATE sessions SET dev_server_port = NULL WHERE id = ?").run(
-    sessionId
+export async function releasePort(sessionId: string): Promise<void> {
+  await getPool().query(
+    "UPDATE sessions SET dev_server_port = NULL WHERE id = $1",
+    [sessionId]
   );
 }
 
 /**
  * Get the port assigned to a session
  */
-export function getSessionPort(sessionId: string): number | null {
-  const db = getDb();
-  const result = db
-    .prepare("SELECT dev_server_port FROM sessions WHERE id = ?")
-    .get(sessionId) as { dev_server_port: number | null } | undefined;
+export async function getSessionPort(sessionId: string): Promise<number | null> {
+  const { rows } = await getPool().query(
+    "SELECT dev_server_port FROM sessions WHERE id = $1",
+    [sessionId]
+  );
+  const result = rows[0] as { dev_server_port: number | null } | undefined;
   return result?.dev_server_port || null;
 }

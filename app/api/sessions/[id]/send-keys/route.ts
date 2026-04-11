@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { getDb, queries, type Session } from "@/lib/db";
+import { queries, type Session } from "@/lib/db";
 import { appendFileSync } from "fs";
 
 const execAsync = promisify(exec);
@@ -35,8 +35,7 @@ export async function POST(
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
 
-    const db = getDb();
-    const session = queries.getSession(db).get(id) as Session | undefined;
+    const session = await queries.getSession(id);
 
     if (!session) {
       log(`ERROR: Session ${id} not found in DB`);

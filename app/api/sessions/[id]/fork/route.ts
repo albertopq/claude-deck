@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { getDb, queries, type Session, type Message } from "@/lib/db";
+import { queries, type Session } from "@/lib/db";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -20,10 +20,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
     const { name } = body;
 
-    const db = getDb();
-
     // Get parent session
-    const parent = queries.getSession(db).get(parentId) as Session | undefined;
+    const parent = await queries.getSession(parentId);
     if (!parent) {
       return NextResponse.json(
         { error: "Parent session not found" },
@@ -37,43 +35,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const agentType = parent.agent_type || "claude";
     const tmuxName = `${agentType}-${newId}`;
 
-    queries
-      .createSession(db)
-      .run(
-        newId,
-        newName,
-        tmuxName,
-        parent.working_directory,
-        parentId,
-        parent.model,
-        parent.system_prompt,
-        parent.group_path || "sessions",
-        agentType,
-        parent.auto_approve ? 1 : 0,
-        parent.project_id || "uncategorized"
-      );
+    await queries.createSession(
+      newId,
+      newName,
+      tmuxName,
+      parent.working_directory,
+      parentId,
+      parent.model,
+      parent.system_prompt,
+      parent.group_path || "sessions",
+      agentType,
+      parent.auto_approve,
+      parent.project_id || "uncategorized"
+    );
 
     // NOTE: We do NOT copy claude_session_id here.
     // When the forked session is first attached, it will use --fork-session flag
     // with the parent's claude_session_id to create a new branched conversation.
     // The new session ID will be captured automatically.
 
-    // Copy any local messages from parent (for logging purposes)
-    const parentMessages = queries
-      .getSessionMessages(db)
-      .all(parentId) as Message[];
-    for (const msg of parentMessages) {
-      queries
-        .createMessage(db)
-        .run(newId, msg.role, msg.content, msg.duration_ms);
-    }
+    // Messages are no longer stored in our DB - skipping message copy
 
-    const session = queries.getSession(db).get(newId) as Session;
+    const session = await queries.getSession(newId);
 
     return NextResponse.json(
       {
         session,
-        messagesCopied: parentMessages.length,
       },
       { status: 201 }
     );

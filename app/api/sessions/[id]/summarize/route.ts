@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec, spawn } from "child_process";
 import { promisify } from "util";
-import { getDb, queries, type Session } from "@/lib/db";
+import { queries, getPool, type Session } from "@/lib/db";
 import { randomUUID } from "crypto";
 import { writeFileSync, unlinkSync, readFileSync, existsSync } from "fs";
 import { homedir } from "os";
@@ -205,8 +205,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const { createFork = true, sendContext = true } = body;
 
-    const db = getDb();
-    const session = queries.getSession(db).get(id) as Session | undefined;
+    const session = await queries.getSession(id) as Session | undefined;
 
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -263,21 +262,25 @@ export async function POST(
       const tmuxName = `${agentType}-${newId}`;
 
       // Create new session in DB (using cwd already fetched above)
-      queries.createSession(db).run(
-        newId,
-        newName,
-        tmuxName,
-        cwd,
-        null, // no parent - fresh start
-        session.model,
-        `Continue from previous session. Here's a summary of the work so far:\n\n${summary}`,
-        session.group_path,
-        agentType,
-        session.auto_approve ? 1 : 0,
-        session.project_id || "uncategorized"
+      await getPool().query(
+        `INSERT INTO sessions (id, name, tmux_name, working_directory, parent_session_id, model, initial_prompt, group_path, agent_type, auto_approve, project_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [
+          newId,
+          newName,
+          tmuxName,
+          cwd,
+          null, // no parent - fresh start
+          session.model,
+          `Continue from previous session. Here's a summary of the work so far:\n\n${summary}`,
+          session.group_path,
+          agentType,
+          session.auto_approve ? 1 : 0,
+          session.project_id || "uncategorized",
+        ]
       );
 
-      newSession = queries.getSession(db).get(newId) as Session;
+      newSession = await queries.getSession(newId) as Session;
       const newTmuxSession = tmuxName;
 
       // Start new tmux session with Claude directly

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { getDb, queries, type Session, type Group } from "@/lib/db";
+import { queries, type Session, type Group } from "@/lib/db";
 import { isValidAgentType, type AgentType } from "@/lib/providers";
 import { createWorktree } from "@/lib/worktrees";
 import { setupWorktree, type SetupResult } from "@/lib/env-setup";
@@ -11,9 +11,8 @@ import { getProject } from "@/lib/projects";
 // GET /api/sessions - List all sessions and groups
 export async function GET() {
   try {
-    const db = getDb();
-    const sessions = queries.getAllSessions(db).all() as Session[];
-    const groups = queries.getAllGroups(db).all() as Group[];
+    const sessions = await queries.getAllSessions();
+    const groups = await queries.getAllGroups();
 
     // Convert expanded from 0/1 to boolean
     const formattedGroups = groups.map((g) => ({
@@ -32,8 +31,8 @@ export async function GET() {
 }
 
 // Generate a unique session name
-function generateSessionName(db: ReturnType<typeof getDb>): string {
-  const sessions = queries.getAllSessions(db).all() as Session[];
+async function generateSessionName(): Promise<string> {
+  const sessions = await queries.getAllSessions();
   const existingNumbers = sessions
     .map((s) => {
       const match = s.name.match(/^Session (\d+)$/);
@@ -50,7 +49,6 @@ function generateSessionName(db: ReturnType<typeof getDb>): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const db = getDb();
 
     const {
       name: providedName,
@@ -81,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Auto-generate name if not provided
     const name =
       providedName?.trim() ||
-      (featureName ? featureName : generateSessionName(db));
+      (featureName ? featureName : await generateSessionName());
 
     const id = randomUUID();
 
@@ -135,7 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tmuxName = useTmux ? `${agentType}-${id}` : null;
-    queries.createSession(db).run(
+    await queries.createSession(
       id,
       name,
       tmuxName,
@@ -145,45 +143,30 @@ export async function POST(request: NextRequest) {
       systemPrompt,
       groupPath,
       agentType,
-      autoApprove ? 1 : 0, // SQLite stores booleans as integers
+      autoApprove,
       projectId
     );
 
     // Set worktree info if created
     if (worktreePath) {
-      queries
-        .updateSessionWorktree(db)
-        .run(worktreePath, branchName, baseBranch, port, id);
+      await queries.updateSessionWorktree(worktreePath, branchName, baseBranch, port, id);
     }
 
     // Set claude_session_id if provided (for importing external sessions)
     if (claudeSessionId) {
-      db.prepare("UPDATE sessions SET claude_session_id = ? WHERE id = ?").run(
-        claudeSessionId,
-        id
+      const { getPool } = await import("@/lib/db");
+      await getPool().query(
+        "UPDATE sessions SET claude_session_id = $1 WHERE id = $2",
+        [claudeSessionId, id]
       );
     }
 
-    // If forking, copy messages from parent
-    if (parentSessionId) {
-      const parentMessages = queries
-        .getSessionMessages(db)
-        .all(parentSessionId);
-      for (const msg of parentMessages as Array<{
-        role: string;
-        content: string;
-        duration_ms: number | null;
-      }>) {
-        queries
-          .createMessage(db)
-          .run(id, msg.role, msg.content, msg.duration_ms);
-      }
-    }
+    // Messages are no longer stored in our DB - skipping message copy for forked sessions
 
-    const session = queries.getSession(db).get(id) as Session;
+    const session = await queries.getSession(id);
 
     // Get project's initial prompt if available
-    const project = projectId ? getProject(projectId) : null;
+    const project = projectId ? await getProject(projectId) : null;
     const projectInitialPrompt = project?.initial_prompt?.trim();
     const sessionInitialPrompt = initialPrompt?.trim();
 
@@ -199,7 +182,7 @@ export async function POST(request: NextRequest) {
 
     // Include setup result and initial prompt in response
     const response: {
-      session: Session;
+      session: Session | null;
       setup?: SetupResult;
       initialPrompt?: string;
     } = { session };

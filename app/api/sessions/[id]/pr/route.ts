@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { getDb, queries, type Session } from "@/lib/db";
+import { queries, type Session } from "@/lib/db";
 
 const execAsync = promisify(exec);
 
@@ -79,8 +79,7 @@ async function createPR(
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const db = getDb();
-    const session = queries.getSession(db).get(id) as Session | undefined;
+    const session = await queries.getSession(id);
 
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -108,7 +107,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Update session with PR info if found
     if (pr) {
-      queries.updateSessionPR(db).run(pr.url, pr.number, pr.state, id);
+      await queries.updateSessionPR(pr.url, pr.number, pr.state, id);
     }
 
     return NextResponse.json({ pr });
@@ -128,8 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { title, description } = body;
 
-    const db = getDb();
-    const session = queries.getSession(db).get(id) as Session | undefined;
+    const session = await queries.getSession(id);
 
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -176,7 +174,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
 
     // Save PR info to session
-    queries.updateSessionPR(db).run(pr.url, pr.number, pr.state, id);
+    await queries.updateSessionPR(pr.url, pr.number, pr.state, id);
 
     return NextResponse.json({ pr }, { status: 201 });
   } catch (error) {

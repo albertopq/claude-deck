@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { getDb, queries, type Session } from "@/lib/db";
+import { queries, getPool, type Session } from "@/lib/db";
 import { deleteWorktree, isAgentOSWorktree } from "@/lib/worktrees";
 import { releasePort } from "@/lib/ports";
 import { killWorker } from "@/lib/orchestration";
@@ -28,8 +28,7 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const db = getDb();
-    const session = queries.getSession(db).get(id) as Session | undefined;
+    const session = await queries.getSession(id);
 
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -50,9 +49,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const db = getDb();
 
-    const existing = queries.getSession(db).get(id) as Session | undefined;
+    const existing = await queries.getSession(id);
     if (!existing) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
@@ -60,6 +58,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Build update query dynamically based on provided fields
     const updates: string[] = [];
     const values: unknown[] = [];
+    let paramIndex = 1;
 
     // Handle name change - also rename tmux session and git branch (for worktrees)
     if (body.name !== undefined && body.name !== existing.name) {
@@ -72,12 +71,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           await execAsync(
             `tmux rename-session -t "${oldTmuxName}" "${newTmuxName}"`
           );
-          updates.push("tmux_name = ?");
+          updates.push(`tmux_name = $${paramIndex++}`);
           values.push(newTmuxName);
         } catch {
           // tmux session might not exist or rename failed - that's ok, just update the name
           // Still update tmux_name in DB so future attachments use the new name
-          updates.push("tmux_name = ?");
+          updates.push(`tmux_name = $${paramIndex++}`);
           values.push(newTmuxName);
         }
       }
@@ -105,36 +104,37 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      updates.push("name = ?");
+      updates.push(`name = $${paramIndex++}`);
       values.push(body.name);
     }
     if (body.status !== undefined) {
-      updates.push("status = ?");
+      updates.push(`status = $${paramIndex++}`);
       values.push(body.status);
     }
     if (body.workingDirectory !== undefined) {
-      updates.push("working_directory = ?");
+      updates.push(`working_directory = $${paramIndex++}`);
       values.push(body.workingDirectory);
     }
     if (body.systemPrompt !== undefined) {
-      updates.push("system_prompt = ?");
+      updates.push(`system_prompt = $${paramIndex++}`);
       values.push(body.systemPrompt);
     }
     if (body.groupPath !== undefined) {
-      updates.push("group_path = ?");
+      updates.push(`group_path = $${paramIndex++}`);
       values.push(body.groupPath);
     }
 
     if (updates.length > 0) {
-      updates.push("updated_at = datetime('now')");
+      updates.push("updated_at = NOW()");
       values.push(id);
 
-      db.prepare(`UPDATE sessions SET ${updates.join(", ")} WHERE id = ?`).run(
-        ...values
+      await getPool().query(
+        `UPDATE sessions SET ${updates.join(", ")} WHERE id = $${paramIndex}`,
+        values
       );
     }
 
-    const session = queries.getSession(db).get(id) as Session;
+    const session = await queries.getSession(id);
     return NextResponse.json({ session });
   } catch (error) {
     console.error("Error updating session:", error);
@@ -149,22 +149,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const db = getDb();
 
-    const existing = queries.getSession(db).get(id) as Session | undefined;
+    const existing = await queries.getSession(id);
     if (!existing) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     // If this is a conductor, delete all its workers first
-    const workers = queries.getWorkersByConductor(db).all(id) as Session[];
+    const workers = await queries.getWorkersByConductor(id);
     for (const worker of workers) {
       try {
         await killWorker(worker.id, false); // false = don't cleanup worktree yet
       } catch (error) {
         console.error(`Failed to kill worker ${worker.id}:`, error);
       }
-      queries.deleteSession(db).run(worker.id);
+      await queries.deleteSession(worker.id);
     }
 
     // Release port if this session had one assigned
@@ -173,7 +172,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete from database immediately for instant UI feedback
-    queries.deleteSession(db).run(id);
+    await queries.deleteSession(id);
 
     // Clean up worktree in background (non-blocking)
     if (existing.worktree_path && isAgentOSWorktree(existing.worktree_path)) {

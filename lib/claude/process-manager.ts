@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from "child_process";
 import { WebSocket } from "ws";
 import { StreamParser } from "./stream-parser";
-import { getDb, queries, type Session } from "../db";
+import { queries, type Session } from "../db";
 import type { ClaudeSessionOptions, ClientEvent } from "./types";
 
 interface ManagedSession {
@@ -85,17 +85,6 @@ export class ClaudeProcessManager {
       throw new Error(`Session ${sessionId} already has a running process`);
     }
 
-    // Store user message in database
-    const db = getDb();
-    queries
-      .createMessage(db)
-      .run(
-        sessionId,
-        "user",
-        JSON.stringify([{ type: "text", text: prompt }]),
-        null
-      );
-
     // Build Claude CLI command
     const args = ["-p", "--output-format", "stream-json", "--verbose"];
 
@@ -105,9 +94,7 @@ export class ClaudeProcessManager {
     }
 
     // Handle session continuity
-    const dbSession = queries.getSession(db).get(sessionId) as
-      | Session
-      | undefined;
+    const dbSession = await queries.getSession(sessionId);
 
     if (dbSession?.claude_session_id) {
       // Resume existing Claude session
@@ -261,41 +248,24 @@ export class ClaudeProcessManager {
 
   // Handle events for persistence
   private handleEvent(sessionId: string, event: ClientEvent): void {
-    const db = getDb();
-
     switch (event.type) {
       case "init": {
         // Store Claude's session ID for future --resume
         const claudeSessionId = event.data.claudeSessionId;
         if (claudeSessionId) {
-          queries.updateSessionClaudeId(db).run(claudeSessionId, sessionId);
-        }
-        break;
-      }
-
-      case "text": {
-        // Store assistant message
-        if (event.data.role === "assistant") {
-          queries
-            .createMessage(db)
-            .run(
-              sessionId,
-              "assistant",
-              JSON.stringify(event.data.content),
-              null
-            );
+          queries.updateSessionClaudeId(claudeSessionId, sessionId);
         }
         break;
       }
 
       case "complete": {
         // Update session timestamp
-        queries.updateSessionStatus(db).run("idle", sessionId);
+        queries.updateSessionStatus("idle", sessionId);
         break;
       }
 
       case "error": {
-        queries.updateSessionStatus(db).run("error", sessionId);
+        queries.updateSessionStatus("error", sessionId);
         break;
       }
     }
@@ -303,7 +273,6 @@ export class ClaudeProcessManager {
 
   // Update session status in database
   private updateDbStatus(sessionId: string, status: string): void {
-    const db = getDb();
-    queries.updateSessionStatus(db).run(status, sessionId);
+    queries.updateSessionStatus(status, sessionId);
   }
 }

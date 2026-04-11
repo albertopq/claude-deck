@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { detectServers } from "@/lib/dev-servers";
-import { db, queries, Project } from "@/lib/db";
+import { queries, type Project } from "@/lib/db";
 
 // GET /api/dev-servers/detect?projectId=X - Auto-detect available dev servers
 export async function GET(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const project = queries.getProject(db).get(projectId) as
+    const project = await queries.getProject(projectId) as
       | Project
       | undefined;
     if (!project) {

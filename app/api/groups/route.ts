@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { db, queries, type Group } from "@/lib/db";
+import { queries, type Group } from "@/lib/db";
 
 // GET /api/groups - List all groups
 export async function GET() {
   try {
-    const groups = queries.getAllGroups(db).all() as Group[];
+    const groups = await queries.getAllGroups() as Group[];
 
     // Convert expanded from 0/1 to boolean
     const formattedGroups = groups.map((g) => ({
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     const path = parentPath ? `${parentPath}/${sanitizedName}` : sanitizedName;
 
     // Check if group already exists
-    const existing = queries.getGroup(db).get(path) as Group | undefined;
+    const existing = await queries.getGroup(path) as Group | undefined;
     if (existing) {
       return NextResponse.json(
         { error: "Group already exists", group: existing },
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
     // If parent path specified, ensure parent exists
     if (parentPath) {
-      const parent = queries.getGroup(db).get(parentPath) as Group | undefined;
+      const parent = await queries.getGroup(parentPath) as Group | undefined;
       if (!parent) {
         return NextResponse.json(
           { error: "Parent group does not exist" },
@@ -70,13 +70,13 @@ export async function POST(request: Request) {
     }
 
     // Get max sort order for new group
-    const groups = queries.getAllGroups(db).all() as Group[];
+    const groups = await queries.getAllGroups() as Group[];
     const maxOrder = groups.reduce((max, g) => Math.max(max, g.sort_order), 0);
 
     // Create the group
-    queries.createGroup(db).run(path, name, maxOrder + 1);
+    await queries.createGroup(path, name, maxOrder + 1);
 
-    const newGroup = queries.getGroup(db).get(path) as Group;
+    const newGroup = await queries.getGroup(path) as Group;
     return NextResponse.json(
       {
         group: { ...newGroup, expanded: Boolean(newGroup.expanded) },

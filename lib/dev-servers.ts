@@ -2,7 +2,7 @@ import { spawn, exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs";
 import path from "path";
-import { db, queries, DevServer, DevServerType, DevServerStatus } from "./db";
+import { queries, type DevServer, type DevServerType, type DevServerStatus } from "./db";
 
 const execAsync = promisify(exec);
 
@@ -89,7 +89,7 @@ async function checkNodeStatus(server: DevServer): Promise<DevServerStatus> {
       const pid = await getPidOnPort(port);
       if (pid) {
         // Update PID in database
-        queries.updateDevServerPid(db).run(pid, "running", server.id);
+        await queries.updateDevServerPid(pid, "running", server.id);
         return "running";
       }
     }
@@ -127,13 +127,13 @@ export async function getServerStatus(
 
 // Get all servers with live status
 export async function getAllServers(): Promise<DevServer[]> {
-  const servers = queries.getAllDevServers(db).all() as DevServer[];
+  const servers = await queries.getAllDevServers();
 
   // Update status for each server
   for (const server of servers) {
     const liveStatus = await getServerStatus(server);
     if (liveStatus !== server.status) {
-      queries.updateDevServerStatus(db).run(liveStatus, server.id);
+      await queries.updateDevServerStatus(liveStatus, server.id);
       server.status = liveStatus;
     }
   }
@@ -145,14 +145,12 @@ export async function getAllServers(): Promise<DevServer[]> {
 export async function getServersByProject(
   projectId: string
 ): Promise<DevServer[]> {
-  const servers = queries
-    .getDevServersByProject(db)
-    .all(projectId) as DevServer[];
+  const servers = await queries.getDevServersByProject(projectId);
 
   for (const server of servers) {
     const liveStatus = await getServerStatus(server);
     if (liveStatus !== server.status) {
-      queries.updateDevServerStatus(db).run(liveStatus, server.id);
+      await queries.updateDevServerStatus(liveStatus, server.id);
       server.status = liveStatus;
     }
   }
@@ -252,7 +250,7 @@ export async function startServer(
   const ports = opts.ports || [];
 
   // Create database record first
-  queries.createDevServer(db).run(
+  await queries.createDevServer(
     id,
     opts.projectId,
     opts.type,
@@ -271,9 +269,7 @@ export async function startServer(
         opts.command,
         opts.workingDirectory
       );
-      queries
-        .updateDevServer(db)
-        .run("running", null, containerId, JSON.stringify(ports), id);
+      await queries.updateDevServer("running", null, containerId, JSON.stringify(ports), id);
     } else {
       const { pid } = await spawnNodeServer(
         id,
@@ -281,21 +277,19 @@ export async function startServer(
         opts.workingDirectory,
         ports
       );
-      queries
-        .updateDevServer(db)
-        .run("running", pid, null, JSON.stringify(ports), id);
+      await queries.updateDevServer("running", pid, null, JSON.stringify(ports), id);
     }
   } catch (error) {
-    queries.updateDevServerStatus(db).run("failed", id);
+    await queries.updateDevServerStatus("failed", id);
     throw error;
   }
 
-  return queries.getDevServer(db).get(id) as DevServer;
+  return (await queries.getDevServer(id))!;
 }
 
 // Stop a server
 export async function stopServer(id: string): Promise<void> {
-  const server = queries.getDevServer(db).get(id) as DevServer | undefined;
+  const server = await queries.getDevServer(id);
   if (!server) return;
 
   if (server.type === "docker") {
@@ -335,12 +329,12 @@ export async function stopServer(id: string): Promise<void> {
     }
   }
 
-  queries.updateDevServerStatus(db).run("stopped", id);
+  await queries.updateDevServerStatus("stopped", id);
 }
 
 // Restart a server
 export async function restartServer(id: string): Promise<DevServer> {
-  const server = queries.getDevServer(db).get(id) as DevServer | undefined;
+  const server = await queries.getDevServer(id);
   if (!server) throw new Error("Server not found");
 
   await stopServer(id);
@@ -351,9 +345,7 @@ export async function restartServer(id: string): Promise<DevServer> {
       server.command,
       server.working_directory
     );
-    queries
-      .updateDevServer(db)
-      .run("running", null, containerId, server.ports, id);
+    await queries.updateDevServer("running", null, containerId, server.ports, id);
   } else {
     const ports: number[] = JSON.parse(server.ports || "[]");
     const { pid } = await spawnNodeServer(
@@ -362,16 +354,16 @@ export async function restartServer(id: string): Promise<DevServer> {
       server.working_directory,
       ports
     );
-    queries.updateDevServer(db).run("running", pid, null, server.ports, id);
+    await queries.updateDevServer("running", pid, null, server.ports, id);
   }
 
-  return queries.getDevServer(db).get(id) as DevServer;
+  return (await queries.getDevServer(id))!;
 }
 
 // Remove a server (stop and delete)
 export async function removeServer(id: string): Promise<void> {
   await stopServer(id);
-  queries.deleteDevServer(db).run(id);
+  await queries.deleteDevServer(id);
 
   // Clean up log file
   const logPath = getLogPath(id);
@@ -385,7 +377,7 @@ export async function getServerLogs(
   id: string,
   lines = 100
 ): Promise<string[]> {
-  const server = queries.getDevServer(db).get(id) as DevServer | undefined;
+  const server = await queries.getDevServer(id);
   if (!server) return [];
 
   if (server.type === "docker" && server.container_id) {
@@ -505,13 +497,13 @@ export async function detectServers(
 
 // Clean up orphaned servers on startup
 export async function cleanupOrphanedServers(): Promise<void> {
-  const servers = queries.getAllDevServers(db).all() as DevServer[];
+  const servers = await queries.getAllDevServers();
 
   for (const server of servers) {
     const liveStatus = await getServerStatus(server);
     if (server.status === "running" && liveStatus === "stopped") {
       // Server was running but is now dead
-      queries.updateDevServerStatus(db).run("stopped", server.id);
+      await queries.updateDevServerStatus("stopped", server.id);
     }
   }
 }

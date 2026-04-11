@@ -73,26 +73,6 @@ export interface ProjectRepository {
   sort_order: number;
 }
 
-export interface Message {
-  id: number;
-  session_id: string;
-  role: "user" | "assistant";
-  content: string; // JSON array
-  timestamp: string;
-  duration_ms: number | null;
-}
-
-export interface ToolCall {
-  id: number;
-  message_id: number;
-  session_id: string;
-  tool_name: string;
-  tool_input: string; // JSON
-  tool_result: string | null; // JSON
-  status: "pending" | "running" | "completed" | "error";
-  timestamp: string;
-}
-
 export type DevServerType = "node" | "docker";
 export type DevServerStatus = "stopped" | "starting" | "running" | "failed";
 

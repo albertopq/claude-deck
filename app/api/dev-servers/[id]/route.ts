@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, queries, DevServer } from "@/lib/db";
+import { queries, type DevServer } from "@/lib/db";
 import { getServerStatus, removeServer } from "@/lib/dev-servers";
 
 // GET /api/dev-servers/[id] - Get single server with live status
@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const server = queries.getDevServer(db).get(id) as DevServer | undefined;
+    const server = await queries.getDevServer(id) as DevServer | undefined;
 
     if (!server) {
       return NextResponse.json({ error: "Server not found" }, { status: 404 });
@@ -18,7 +18,7 @@ export async function GET(
     // Get live status
     const liveStatus = await getServerStatus(server);
     if (liveStatus !== server.status) {
-      queries.updateDevServerStatus(db).run(liveStatus, id);
+      await queries.updateDevServerStatus(liveStatus, id);
       server.status = liveStatus;
     }
 

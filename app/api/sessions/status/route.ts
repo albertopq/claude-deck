@@ -11,7 +11,7 @@ import {
   getProviderIdFromSessionName,
   getSessionIdFromName,
 } from "@/lib/providers/registry";
-import { getDb } from "@/lib/db";
+import { getPool } from "@/lib/db";
 
 const execAsync = promisify(exec);
 
@@ -167,7 +167,7 @@ export async function GET() {
     // Use the new status detector
     const statusMap: Record<string, SessionStatusResponse> = {};
 
-    const db = getDb();
+    const pool = getPool();
     const sessionsToUpdate: string[] = [];
 
     // Process all sessions in parallel for speed
@@ -211,22 +211,21 @@ export async function GET() {
       };
     }
 
-    // Batch update sessions and claude_session_id in a single transaction
-    const updateStatusStmt = db.prepare(
-      "UPDATE sessions SET updated_at = datetime('now') WHERE id = ?"
-    );
-    const updateClaudeIdStmt = db.prepare(
-      "UPDATE sessions SET claude_session_id = ? WHERE id = ? AND (claude_session_id IS NULL OR claude_session_id != ?)"
-    );
-
+    // Batch update sessions and claude_session_id
     for (const id of sessionsToUpdate) {
-      updateStatusStmt.run(id);
+      await pool.query(
+        "UPDATE sessions SET updated_at = NOW() WHERE id = $1",
+        [id]
+      );
     }
 
     // Update claude_session_id directly here instead of requiring separate API calls
     for (const { id, claudeSessionId } of results) {
       if (claudeSessionId) {
-        updateClaudeIdStmt.run(claudeSessionId, id, claudeSessionId);
+        await pool.query(
+          "UPDATE sessions SET claude_session_id = $1 WHERE id = $2 AND (claude_session_id IS NULL OR claude_session_id != $3)",
+          [claudeSessionId, id, claudeSessionId]
+        );
       }
     }
 

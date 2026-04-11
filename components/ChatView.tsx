@@ -6,11 +6,9 @@ import { ToolCallDisplay } from "./ToolCallDisplay";
 import { MessageInput } from "./MessageInput";
 import { ScrollArea } from "./ui/scroll-area";
 import type { ClientEvent } from "@/lib/claude/types";
-import type { Message } from "@/lib/db";
 
 interface ChatViewProps {
   sessionId: string;
-  initialMessages?: Message[];
 }
 
 interface DisplayMessage {
@@ -27,27 +25,8 @@ interface DisplayMessage {
   }>;
 }
 
-export function ChatView({ sessionId, initialMessages = [] }: ChatViewProps) {
-  const [messages, setMessages] = useState<DisplayMessage[]>(() =>
-    initialMessages.map((m) => {
-      let content = "";
-      try {
-        const parsed = JSON.parse(m.content);
-        content = parsed
-          .filter((c: { type: string }) => c.type === "text")
-          .map((c: { text: string }) => c.text)
-          .join("");
-      } catch {
-        content = m.content;
-      }
-      return {
-        id: String(m.id),
-        role: m.role,
-        content,
-        timestamp: m.timestamp,
-      };
-    })
-  );
+export function ChatView({ sessionId }: ChatViewProps) {
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [currentText, setCurrentText] = useState("");
   const [currentToolCalls, setCurrentToolCalls] = useState<
     DisplayMessage["toolCalls"]
@@ -64,31 +43,12 @@ export function ChatView({ sessionId, initialMessages = [] }: ChatViewProps) {
 
   // Reset messages when session changes
   useEffect(() => {
-    setMessages(
-      initialMessages.map((m) => {
-        let content = "";
-        try {
-          const parsed = JSON.parse(m.content);
-          content = parsed
-            .filter((c: { type: string }) => c.type === "text")
-            .map((c: { text: string }) => c.text)
-            .join("");
-        } catch {
-          content = m.content;
-        }
-        return {
-          id: String(m.id),
-          role: m.role,
-          content,
-          timestamp: m.timestamp,
-        };
-      })
-    );
+    setMessages([]);
     setCurrentText("");
     setCurrentToolCalls([]);
     currentTextRef.current = "";
     currentToolCallsRef.current = [];
-  }, [sessionId, initialMessages]);
+  }, [sessionId]);
 
   useEffect(() => {
     let ignore = false;

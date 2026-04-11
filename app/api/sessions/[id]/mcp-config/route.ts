@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, queries, type Session } from "@/lib/db";
+import { queries, type Session } from "@/lib/db";
 import { ensureMcpConfig } from "@/lib/mcp-config";
 
 // POST /api/sessions/[id]/mcp-config - Ensure MCP config exists for this session
@@ -9,7 +9,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const session = queries.getSession(db).get(id) as Session | undefined;
+    const session = await queries.getSession(id) as Session | undefined;
 
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });

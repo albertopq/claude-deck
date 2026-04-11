@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { queries, getDb, type Session } from "@/lib/db";
+import { queries, type Session } from "@/lib/db";
 
 const execAsync = promisify(exec);
 
@@ -12,10 +12,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const db = getDb();
 
     // Look up session to get the tmux name
-    const session = queries.getSession(db).get(id) as Session | undefined;
+    const session = await queries.getSession(id);
     const agentType = session?.agent_type || "claude";
     const sessionName = session?.tmux_name || `${agentType}-${id}`;
 

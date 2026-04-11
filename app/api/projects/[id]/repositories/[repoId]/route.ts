@@ -3,7 +3,7 @@ import {
   updateProjectRepository,
   deleteProjectRepository,
 } from "@/lib/projects";
-import { queries, db, type ProjectRepository } from "@/lib/db";
+import { queries, type ProjectRepository } from "@/lib/db";
 
 interface RouteParams {
   params: Promise<{ id: string; repoId: string }>;
@@ -14,9 +14,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { repoId } = await params;
 
-    const existing = queries.getProjectRepository(db).get(repoId) as
-      | (Omit<ProjectRepository, "is_primary"> & { is_primary: number })
-      | undefined;
+    const existing = await queries.getProjectRepository(repoId);
     if (!existing) {
       return NextResponse.json(
         { error: "Repository not found" },
@@ -27,7 +25,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { name, path, isPrimary, sortOrder } = body;
 
-    const repository = updateProjectRepository(repoId, {
+    const repository = await updateProjectRepository(repoId, {
       name,
       path,
       isPrimary,
@@ -49,9 +47,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { repoId } = await params;
 
-    const existing = queries.getProjectRepository(db).get(repoId) as
-      | (Omit<ProjectRepository, "is_primary"> & { is_primary: number })
-      | undefined;
+    const existing = await queries.getProjectRepository(repoId);
     if (!existing) {
       return NextResponse.json(
         { error: "Repository not found" },
@@ -59,7 +55,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    deleteProjectRepository(repoId);
+    await deleteProjectRepository(repoId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting repository:", error);
