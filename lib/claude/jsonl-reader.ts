@@ -60,6 +60,28 @@ export interface AgentTool {
   timestamp: string;
 }
 
+function extractUserText(
+  content: string | ContentBlock[]
+): string | null {
+  const text =
+    typeof content === "string"
+      ? content
+      : content
+          .filter((b) => b.type === "text" && b.text)
+          .map((b) => b.text!)
+          .join(" ");
+
+  if (!text) return null;
+
+  const stripped = text
+    .replace(/<[^>]+>[^<]*<\/[^>]+>/g, "")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+
+  if (!stripped || stripped.length < 5) return null;
+  return stripped.slice(0, 120);
+}
+
 export function getClaudeProjectNames(): string[] {
   try {
     return fs
@@ -174,11 +196,8 @@ export async function getSessions(
         let summary = "";
         if (entry.summary) {
           summary = entry.summary;
-        } else if (
-          entry.message?.role === "user" &&
-          typeof entry.message.content === "string"
-        ) {
-          summary = entry.message.content.slice(0, 100);
+        } else if (entry.message?.role === "user" && entry.message.content) {
+          summary = extractUserText(entry.message.content) || "";
         }
         sessionMap.set(entry.sessionId, {
           summary,
@@ -196,9 +215,9 @@ export async function getSessions(
         if (
           !existing.summary &&
           entry.message?.role === "user" &&
-          typeof entry.message.content === "string"
+          entry.message.content
         ) {
-          existing.summary = entry.message.content.slice(0, 100);
+          existing.summary = extractUserText(entry.message.content) || "";
         }
       }
     }
