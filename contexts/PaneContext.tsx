@@ -44,7 +44,8 @@ interface PaneContextValue {
     sessionId: string,
     tmuxName: string,
     sessionName?: string,
-    claudeProjectName?: string
+    claudeProjectName?: string,
+    workingDirectory?: string
   ) => void;
   detachSession: (paneId: string) => void;
   getPaneData: (paneId: string) => PaneData;
@@ -190,7 +191,8 @@ export function PaneProvider({ children }: { children: ReactNode }) {
       sessionId: string,
       tmuxName: string,
       sessionName?: string,
-      claudeProjectName?: string
+      claudeProjectName?: string,
+      workingDirectory?: string
     ) => {
       setState((prev) => {
         const pane = prev.panes[paneId];
@@ -203,6 +205,7 @@ export function PaneProvider({ children }: { children: ReactNode }) {
                 sessionId,
                 sessionName: sessionName ?? null,
                 claudeProjectName: claudeProjectName ?? null,
+                workingDirectory: workingDirectory ?? null,
                 attachedTmux: tmuxName,
               }
             : tab

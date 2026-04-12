@@ -327,7 +327,8 @@ function HomeContent() {
               claudeSessionId,
               tmuxName,
               sessionName,
-              projectName
+              projectName,
+              cwd
             );
             terminal.focus();
           }, 50);

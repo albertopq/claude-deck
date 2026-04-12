@@ -119,7 +119,7 @@ export const Pane = memo(function Pane({
         ? ({
             id: activeTab.sessionId,
             name: activeTab.sessionName || activeTab.sessionId.slice(0, 8),
-            working_directory: "~",
+            working_directory: activeTab.workingDirectory || "~",
           } as Session)
         : null))
     : null;
