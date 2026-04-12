@@ -4,8 +4,16 @@ import { queries } from "@/lib/db";
 import fs from "fs";
 import path from "path";
 
-function resolveValidCwd(cwd: string | null): string {
-  if (!cwd) return process.env.HOME || "/";
+function projectNameToDirectory(name: string): string {
+  return name.replace(/^-/, "/").replace(/-/g, "/");
+}
+
+function resolveValidCwd(cwd: string | null, projectName: string): string {
+  if (!cwd) {
+    const projectDir = projectNameToDirectory(projectName);
+    if (fs.existsSync(projectDir)) return projectDir;
+    return process.env.HOME || "/";
+  }
   let dir = cwd;
   while (dir && dir !== "/" && !fs.existsSync(dir)) {
     dir = path.dirname(dir);
@@ -32,7 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const enriched = allSessions.map((s) => ({
       ...s,
-      cwd: resolveValidCwd(s.cwd),
+      cwd: resolveValidCwd(s.cwd, name),
       hidden: hiddenSet.has(s.sessionId),
     }));
 
