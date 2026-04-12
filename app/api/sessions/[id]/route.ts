@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { queries, getPool, type Session } from "@/lib/db";
+import { queries, type Session } from "@/lib/db";
 import { deleteWorktree, isAgentOSWorktree } from "@/lib/worktrees";
 import { releasePort } from "@/lib/ports";
 import { killWorker } from "@/lib/orchestration";
@@ -58,7 +58,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Build update query dynamically based on provided fields
     const updates: string[] = [];
     const values: unknown[] = [];
-    let paramIndex = 1;
 
     // Handle name change - also rename tmux session and git branch (for worktrees)
     if (body.name !== undefined && body.name !== existing.name) {
@@ -71,12 +70,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           await execAsync(
             `tmux rename-session -t "${oldTmuxName}" "${newTmuxName}"`
           );
-          updates.push(`tmux_name = $${paramIndex++}`);
+          updates.push(`tmux_name = ?`);
           values.push(newTmuxName);
         } catch {
           // tmux session might not exist or rename failed - that's ok, just update the name
           // Still update tmux_name in DB so future attachments use the new name
-          updates.push(`tmux_name = $${paramIndex++}`);
+          updates.push(`tmux_name = ?`);
           values.push(newTmuxName);
         }
       }
@@ -104,34 +103,34 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      updates.push(`name = $${paramIndex++}`);
+      updates.push(`name = ?`);
       values.push(body.name);
     }
     if (body.status !== undefined) {
-      updates.push(`status = $${paramIndex++}`);
+      updates.push(`status = ?`);
       values.push(body.status);
     }
     if (body.workingDirectory !== undefined) {
-      updates.push(`working_directory = $${paramIndex++}`);
+      updates.push(`working_directory = ?`);
       values.push(body.workingDirectory);
     }
     if (body.systemPrompt !== undefined) {
-      updates.push(`system_prompt = $${paramIndex++}`);
+      updates.push(`system_prompt = ?`);
       values.push(body.systemPrompt);
     }
     if (body.groupPath !== undefined) {
-      updates.push(`group_path = $${paramIndex++}`);
+      updates.push(`group_path = ?`);
       values.push(body.groupPath);
     }
 
     if (updates.length > 0) {
-      updates.push("updated_at = NOW()");
+      updates.push("updated_at = datetime('now')");
       values.push(id);
 
-      await getPool().query(
-        `UPDATE sessions SET ${updates.join(", ")} WHERE id = $${paramIndex}`,
-        values
-      );
+      const { getDb } = await import("@/lib/db");
+      getDb()
+        .prepare(`UPDATE sessions SET ${updates.join(", ")} WHERE id = ?`)
+        .run(...values);
     }
 
     const session = await queries.getSession(id);

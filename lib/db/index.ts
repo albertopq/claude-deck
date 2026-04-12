@@ -1,45 +1,48 @@
-import { Pool } from "pg";
+import Database from "better-sqlite3";
+import path from "path";
+import os from "os";
 import { createSchema } from "./schema";
 import { runMigrations } from "./migrations";
 
 export * from "./types";
 export { queries } from "./queries";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL || "postgresql://localhost:5432/agent_os";
+const DB_DIR = path.join(os.homedir(), ".agent-os");
+const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, "data.db");
 
-let _pool: Pool | null = null;
+let _db: Database.Database | null = null;
 
-export function getPool(): Pool {
-  if (!_pool) {
-    _pool = new Pool({
-      connectionString: DATABASE_URL,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-    });
+export function getDb(): Database.Database {
+  if (!_db) {
+    const fs = require("fs");
+    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+
+    _db = new Database(DB_PATH);
+    _db.pragma("journal_mode = WAL");
+    _db.pragma("foreign_keys = ON");
+    _db.pragma("busy_timeout = 5000");
   }
-  return _pool;
+  return _db;
 }
 
 let _initialized = false;
 
-export async function initDb(): Promise<Pool> {
-  const pool = getPool();
+export async function initDb(): Promise<Database.Database> {
+  const db = getDb();
 
   if (!_initialized) {
-    await createSchema(pool);
-    await runMigrations(pool);
+    createSchema(db);
+    runMigrations(db);
     _initialized = true;
   }
 
-  return pool;
+  return db;
 }
 
 export async function closeDb(): Promise<void> {
-  if (_pool) {
-    await _pool.end();
-    _pool = null;
+  if (_db) {
+    _db.close();
+    _db = null;
     _initialized = false;
   }
 }

@@ -1,13 +1,13 @@
-import type { Pool } from "pg";
+import type Database from "better-sqlite3";
 
-export async function createSchema(pool: Pool): Promise<void> {
-  await pool.query(`
+export function createSchema(db: Database.Database): void {
+  db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       tmux_name TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       status TEXT NOT NULL DEFAULT 'idle',
       working_directory TEXT NOT NULL DEFAULT '~',
       parent_session_id TEXT REFERENCES sessions(id),
@@ -17,7 +17,7 @@ export async function createSchema(pool: Pool): Promise<void> {
       group_path TEXT NOT NULL DEFAULT 'sessions',
       project_id TEXT,
       agent_type TEXT NOT NULL DEFAULT 'claude',
-      auto_approve BOOLEAN NOT NULL DEFAULT FALSE,
+      auto_approve INTEGER NOT NULL DEFAULT 0,
       worktree_path TEXT,
       branch_name TEXT,
       base_branch TEXT,
@@ -33,14 +33,13 @@ export async function createSchema(pool: Pool): Promise<void> {
     CREATE TABLE IF NOT EXISTS groups (
       path TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      expanded BOOLEAN NOT NULL DEFAULT TRUE,
+      expanded INTEGER NOT NULL DEFAULT 1,
       sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    INSERT INTO groups (path, name, sort_order)
-    VALUES ('sessions', 'Sessions', 0)
-    ON CONFLICT (path) DO NOTHING;
+    INSERT OR IGNORE INTO groups (path, name, sort_order)
+    VALUES ('sessions', 'Sessions', 0);
 
     CREATE TABLE IF NOT EXISTS dev_servers (
       id TEXT PRIMARY KEY,
@@ -53,8 +52,8 @@ export async function createSchema(pool: Pool): Promise<void> {
       container_id TEXT,
       ports TEXT NOT NULL DEFAULT '[]',
       working_directory TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS projects (
@@ -64,11 +63,11 @@ export async function createSchema(pool: Pool): Promise<void> {
       agent_type TEXT NOT NULL DEFAULT 'claude',
       default_model TEXT NOT NULL DEFAULT 'sonnet',
       initial_prompt TEXT,
-      expanded BOOLEAN NOT NULL DEFAULT TRUE,
+      expanded INTEGER NOT NULL DEFAULT 1,
       sort_order INTEGER NOT NULL DEFAULT 0,
-      is_uncategorized BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      is_uncategorized INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS project_dev_servers (
@@ -87,7 +86,7 @@ export async function createSchema(pool: Pool): Promise<void> {
       project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       path TEXT NOT NULL,
-      is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+      is_primary INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0
     );
 
@@ -100,39 +99,16 @@ export async function createSchema(pool: Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_dev_servers_project ON dev_servers(project_id);
 
     CREATE TABLE IF NOT EXISTS hidden_items (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       item_type TEXT NOT NULL,
       item_id TEXT NOT NULL,
-      hidden_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      hidden_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(item_type, item_id)
     );
 
     CREATE INDEX IF NOT EXISTS idx_hidden_items_type ON hidden_items(item_type);
 
-    INSERT INTO projects (id, name, working_directory, is_uncategorized, sort_order)
-    VALUES ('uncategorized', 'Uncategorized', '~', TRUE, 999999)
-    ON CONFLICT (id) DO NOTHING;
-
-    ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_project_id_fkey;
-    DO $$ BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints
-        WHERE constraint_name = 'sessions_project_id_fkey'
-      ) THEN
-        ALTER TABLE sessions ADD CONSTRAINT sessions_project_id_fkey
-          FOREIGN KEY (project_id) REFERENCES projects(id);
-      END IF;
-    END $$;
-
-    ALTER TABLE dev_servers DROP CONSTRAINT IF EXISTS dev_servers_project_id_fkey;
-    DO $$ BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints
-        WHERE constraint_name = 'dev_servers_project_id_fkey'
-      ) THEN
-        ALTER TABLE dev_servers ADD CONSTRAINT dev_servers_project_id_fkey
-          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE;
-      END IF;
-    END $$;
+    INSERT OR IGNORE INTO projects (id, name, working_directory, is_uncategorized, sort_order)
+    VALUES ('uncategorized', 'Uncategorized', '~', 1, 999999);
   `);
 }

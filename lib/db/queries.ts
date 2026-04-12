@@ -1,4 +1,4 @@
-import { getPool } from "./index";
+import { getDb } from "./index";
 import type {
   Session,
   Group,
@@ -8,21 +8,24 @@ import type {
   DevServer,
 } from "./types";
 
-async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-  const { rows } = await getPool().query(sql, params);
-  return rows;
+function query<T>(sql: string, params: unknown[] = []): T[] {
+  return getDb()
+    .prepare(sql)
+    .all(...params) as T[];
 }
 
-async function queryOne<T>(
-  sql: string,
-  params: unknown[] = []
-): Promise<T | null> {
-  const rows = await query<T>(sql, params);
-  return rows[0] ?? null;
+function queryOne<T>(sql: string, params: unknown[] = []): T | null {
+  return (
+    (getDb()
+      .prepare(sql)
+      .get(...params) as T) ?? null
+  );
 }
 
-async function execute(sql: string, params: unknown[] = []): Promise<void> {
-  await getPool().query(sql, params);
+function execute(sql: string, params: unknown[] = []): void {
+  getDb()
+    .prepare(sql)
+    .run(...params);
 }
 
 export const queries = {
@@ -41,7 +44,7 @@ export const queries = {
   ) =>
     execute(
       `INSERT INTO sessions (id, name, tmux_name, working_directory, parent_session_id, model, system_prompt, group_path, agent_type, auto_approve, project_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         name,
@@ -52,37 +55,37 @@ export const queries = {
         systemPrompt,
         groupPath,
         agentType,
-        autoApprove,
+        autoApprove ? 1 : 0,
         projectId,
       ]
     ),
 
   getSession: (id: string) =>
-    queryOne<Session>(`SELECT * FROM sessions WHERE id = $1`, [id]),
+    queryOne<Session>("SELECT * FROM sessions WHERE id = ?", [id]),
 
   getAllSessions: () =>
-    query<Session>(`SELECT * FROM sessions ORDER BY updated_at DESC`),
+    query<Session>("SELECT * FROM sessions ORDER BY updated_at DESC"),
 
   updateSessionStatus: (status: string, id: string) =>
     execute(
-      `UPDATE sessions SET status = $1, updated_at = NOW() WHERE id = $2`,
+      "UPDATE sessions SET status = ?, updated_at = datetime('now') WHERE id = ?",
       [status, id]
     ),
 
   updateSessionClaudeId: (claudeSessionId: string, id: string) =>
     execute(
-      `UPDATE sessions SET claude_session_id = $1, updated_at = NOW() WHERE id = $2`,
+      "UPDATE sessions SET claude_session_id = ?, updated_at = datetime('now') WHERE id = ?",
       [claudeSessionId, id]
     ),
 
   updateSessionName: (name: string, tmuxName: string, id: string) =>
     execute(
-      `UPDATE sessions SET name = $1, tmux_name = $2, updated_at = NOW() WHERE id = $3`,
+      "UPDATE sessions SET name = ?, tmux_name = ?, updated_at = datetime('now') WHERE id = ?",
       [name, tmuxName, id]
     ),
 
   deleteSession: (id: string) =>
-    execute(`DELETE FROM sessions WHERE id = $1`, [id]),
+    execute("DELETE FROM sessions WHERE id = ?", [id]),
 
   updateSessionWorktree: (
     worktreePath: string | null,
@@ -92,7 +95,7 @@ export const queries = {
     id: string
   ) =>
     execute(
-      `UPDATE sessions SET worktree_path = $1, branch_name = $2, base_branch = $3, dev_server_port = $4, updated_at = NOW() WHERE id = $5`,
+      "UPDATE sessions SET worktree_path = ?, branch_name = ?, base_branch = ?, dev_server_port = ?, updated_at = datetime('now') WHERE id = ?",
       [worktreePath, branchName, baseBranch, port, id]
     ),
 
@@ -103,49 +106,49 @@ export const queries = {
     id: string
   ) =>
     execute(
-      `UPDATE sessions SET pr_url = $1, pr_number = $2, pr_status = $3, updated_at = NOW() WHERE id = $4`,
+      "UPDATE sessions SET pr_url = ?, pr_number = ?, pr_status = ?, updated_at = datetime('now') WHERE id = ?",
       [prUrl, prNumber, prStatus, id]
     ),
 
   updateSessionGroup: (groupPath: string, id: string) =>
     execute(
-      `UPDATE sessions SET group_path = $1, updated_at = NOW() WHERE id = $2`,
+      "UPDATE sessions SET group_path = ?, updated_at = datetime('now') WHERE id = ?",
       [groupPath, id]
     ),
 
   getSessionsByGroup: (groupPath: string) =>
     query<Session>(
-      `SELECT * FROM sessions WHERE group_path = $1 ORDER BY updated_at DESC`,
+      "SELECT * FROM sessions WHERE group_path = ? ORDER BY updated_at DESC",
       [groupPath]
     ),
 
   moveSessionsToGroup: (newGroupPath: string, oldGroupPath: string) =>
     execute(
-      `UPDATE sessions SET group_path = $1, updated_at = NOW() WHERE group_path = $2`,
+      "UPDATE sessions SET group_path = ?, updated_at = datetime('now') WHERE group_path = ?",
       [newGroupPath, oldGroupPath]
     ),
 
   updateSessionProject: (projectId: string, id: string) =>
     execute(
-      `UPDATE sessions SET project_id = $1, updated_at = NOW() WHERE id = $2`,
+      "UPDATE sessions SET project_id = ?, updated_at = datetime('now') WHERE id = ?",
       [projectId, id]
     ),
 
   getSessionsByProject: (projectId: string) =>
     query<Session>(
-      `SELECT * FROM sessions WHERE project_id = $1 ORDER BY updated_at DESC`,
+      "SELECT * FROM sessions WHERE project_id = ? ORDER BY updated_at DESC",
       [projectId]
     ),
 
   getWorkersByConductor: (conductorId: string) =>
     query<Session>(
-      `SELECT * FROM sessions WHERE conductor_session_id = $1 ORDER BY created_at ASC`,
+      "SELECT * FROM sessions WHERE conductor_session_id = ? ORDER BY created_at ASC",
       [conductorId]
     ),
 
   updateWorkerStatus: (workerStatus: string, id: string) =>
     execute(
-      `UPDATE sessions SET worker_status = $1, updated_at = NOW() WHERE id = $2`,
+      "UPDATE sessions SET worker_status = ?, updated_at = datetime('now') WHERE id = ?",
       [workerStatus, id]
     ),
 
@@ -163,7 +166,7 @@ export const queries = {
   ) =>
     execute(
       `INSERT INTO sessions (id, name, tmux_name, working_directory, conductor_session_id, worker_task, worker_status, model, group_path, agent_type, project_id)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10)`,
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
       [
         id,
         name,
@@ -179,36 +182,35 @@ export const queries = {
     ),
 
   getAllGroups: () =>
-    query<Group>(
-      `SELECT * FROM groups ORDER BY sort_order ASC, name ASC`
-    ),
+    query<Group>("SELECT * FROM groups ORDER BY sort_order ASC, name ASC"),
 
   getGroup: (path: string) =>
-    queryOne<Group>(`SELECT * FROM groups WHERE path = $1`, [path]),
+    queryOne<Group>("SELECT * FROM groups WHERE path = ?", [path]),
 
   createGroup: (path: string, name: string, sortOrder: number) =>
-    execute(
-      `INSERT INTO groups (path, name, sort_order) VALUES ($1, $2, $3)`,
-      [path, name, sortOrder]
-    ),
+    execute("INSERT INTO groups (path, name, sort_order) VALUES (?, ?, ?)", [
+      path,
+      name,
+      sortOrder,
+    ]),
 
   updateGroupName: (name: string, path: string) =>
-    execute(`UPDATE groups SET name = $1 WHERE path = $2`, [name, path]),
+    execute("UPDATE groups SET name = ? WHERE path = ?", [name, path]),
 
   updateGroupExpanded: (expanded: boolean, path: string) =>
-    execute(`UPDATE groups SET expanded = $1 WHERE path = $2`, [
-      expanded,
+    execute("UPDATE groups SET expanded = ? WHERE path = ?", [
+      expanded ? 1 : 0,
       path,
     ]),
 
   updateGroupOrder: (sortOrder: number, path: string) =>
-    execute(`UPDATE groups SET sort_order = $1 WHERE path = $2`, [
+    execute("UPDATE groups SET sort_order = ? WHERE path = ?", [
       sortOrder,
       path,
     ]),
 
   deleteGroup: (path: string) =>
-    execute(`DELETE FROM groups WHERE path = $1`, [path]),
+    execute("DELETE FROM groups WHERE path = ?", [path]),
 
   createProject: (
     id: string,
@@ -221,16 +223,24 @@ export const queries = {
   ) =>
     execute(
       `INSERT INTO projects (id, name, working_directory, agent_type, default_model, initial_prompt, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [id, name, workingDirectory, agentType, defaultModel, initialPrompt, sortOrder]
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        name,
+        workingDirectory,
+        agentType,
+        defaultModel,
+        initialPrompt,
+        sortOrder,
+      ]
     ),
 
   getProject: (id: string) =>
-    queryOne<Project>(`SELECT * FROM projects WHERE id = $1`, [id]),
+    queryOne<Project>("SELECT * FROM projects WHERE id = ?", [id]),
 
   getAllProjects: () =>
     query<Project>(
-      `SELECT * FROM projects ORDER BY is_uncategorized ASC, sort_order ASC, name ASC`
+      "SELECT * FROM projects ORDER BY is_uncategorized ASC, sort_order ASC, name ASC"
     ),
 
   updateProject: (
@@ -242,24 +252,21 @@ export const queries = {
     id: string
   ) =>
     execute(
-      `UPDATE projects SET name = $1, working_directory = $2, agent_type = $3, default_model = $4, initial_prompt = $5, updated_at = NOW() WHERE id = $6`,
+      "UPDATE projects SET name = ?, working_directory = ?, agent_type = ?, default_model = ?, initial_prompt = ?, updated_at = datetime('now') WHERE id = ?",
       [name, workingDirectory, agentType, defaultModel, initialPrompt, id]
     ),
 
   updateProjectExpanded: (expanded: boolean, id: string) =>
-    execute(`UPDATE projects SET expanded = $1 WHERE id = $2`, [expanded, id]),
-
-  updateProjectOrder: (sortOrder: number, id: string) =>
-    execute(`UPDATE projects SET sort_order = $1 WHERE id = $2`, [
-      sortOrder,
+    execute("UPDATE projects SET expanded = ? WHERE id = ?", [
+      expanded ? 1 : 0,
       id,
     ]),
 
+  updateProjectOrder: (sortOrder: number, id: string) =>
+    execute("UPDATE projects SET sort_order = ? WHERE id = ?", [sortOrder, id]),
+
   deleteProject: (id: string) =>
-    execute(
-      `DELETE FROM projects WHERE id = $1 AND is_uncategorized = FALSE`,
-      [id]
-    ),
+    execute("DELETE FROM projects WHERE id = ? AND is_uncategorized = 0", [id]),
 
   createProjectDevServer: (
     id: string,
@@ -273,19 +280,19 @@ export const queries = {
   ) =>
     execute(
       `INSERT INTO project_dev_servers (id, project_id, name, type, command, port, port_env_var, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, projectId, name, type, command, port, portEnvVar, sortOrder]
     ),
 
   getProjectDevServer: (id: string) =>
     queryOne<ProjectDevServer>(
-      `SELECT * FROM project_dev_servers WHERE id = $1`,
+      "SELECT * FROM project_dev_servers WHERE id = ?",
       [id]
     ),
 
   getProjectDevServers: (projectId: string) =>
     query<ProjectDevServer>(
-      `SELECT * FROM project_dev_servers WHERE project_id = $1 ORDER BY sort_order ASC`,
+      "SELECT * FROM project_dev_servers WHERE project_id = ? ORDER BY sort_order ASC",
       [projectId]
     ),
 
@@ -299,15 +306,15 @@ export const queries = {
     id: string
   ) =>
     execute(
-      `UPDATE project_dev_servers SET name = $1, type = $2, command = $3, port = $4, port_env_var = $5, sort_order = $6 WHERE id = $7`,
+      "UPDATE project_dev_servers SET name = ?, type = ?, command = ?, port = ?, port_env_var = ?, sort_order = ? WHERE id = ?",
       [name, type, command, port, portEnvVar, sortOrder, id]
     ),
 
   deleteProjectDevServer: (id: string) =>
-    execute(`DELETE FROM project_dev_servers WHERE id = $1`, [id]),
+    execute("DELETE FROM project_dev_servers WHERE id = ?", [id]),
 
   deleteProjectDevServers: (projectId: string) =>
-    execute(`DELETE FROM project_dev_servers WHERE project_id = $1`, [
+    execute("DELETE FROM project_dev_servers WHERE project_id = ?", [
       projectId,
     ]),
 
@@ -321,19 +328,19 @@ export const queries = {
   ) =>
     execute(
       `INSERT INTO project_repositories (id, project_id, name, path, is_primary, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, projectId, name, path, isPrimary, sortOrder]
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, projectId, name, path, isPrimary ? 1 : 0, sortOrder]
     ),
 
   getProjectRepository: (id: string) =>
     queryOne<ProjectRepository>(
-      `SELECT * FROM project_repositories WHERE id = $1`,
+      "SELECT * FROM project_repositories WHERE id = ?",
       [id]
     ),
 
   getProjectRepositories: (projectId: string) =>
     query<ProjectRepository>(
-      `SELECT * FROM project_repositories WHERE project_id = $1 ORDER BY sort_order ASC`,
+      "SELECT * FROM project_repositories WHERE project_id = ? ORDER BY sort_order ASC",
       [projectId]
     ),
 
@@ -345,15 +352,15 @@ export const queries = {
     id: string
   ) =>
     execute(
-      `UPDATE project_repositories SET name = $1, path = $2, is_primary = $3, sort_order = $4 WHERE id = $5`,
-      [name, path, isPrimary, sortOrder, id]
+      "UPDATE project_repositories SET name = ?, path = ?, is_primary = ?, sort_order = ? WHERE id = ?",
+      [name, path, isPrimary ? 1 : 0, sortOrder, id]
     ),
 
   deleteProjectRepository: (id: string) =>
-    execute(`DELETE FROM project_repositories WHERE id = $1`, [id]),
+    execute("DELETE FROM project_repositories WHERE id = ?", [id]),
 
   deleteProjectRepositories: (projectId: string) =>
-    execute(`DELETE FROM project_repositories WHERE project_id = $1`, [
+    execute("DELETE FROM project_repositories WHERE project_id = ?", [
       projectId,
     ]),
 
@@ -371,33 +378,42 @@ export const queries = {
   ) =>
     execute(
       `INSERT INTO dev_servers (id, project_id, type, name, command, status, pid, container_id, ports, working_directory)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [id, projectId, type, name, command, status, pid, containerId, ports, workingDirectory]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        projectId,
+        type,
+        name,
+        command,
+        status,
+        pid,
+        containerId,
+        ports,
+        workingDirectory,
+      ]
     ),
 
   getDevServer: (id: string) =>
-    queryOne<DevServer>(`SELECT * FROM dev_servers WHERE id = $1`, [id]),
+    queryOne<DevServer>("SELECT * FROM dev_servers WHERE id = ?", [id]),
 
   getAllDevServers: () =>
-    query<DevServer>(
-      `SELECT * FROM dev_servers ORDER BY created_at DESC`
-    ),
+    query<DevServer>("SELECT * FROM dev_servers ORDER BY created_at DESC"),
 
   getDevServersByProject: (projectId: string) =>
     query<DevServer>(
-      `SELECT * FROM dev_servers WHERE project_id = $1 ORDER BY created_at DESC`,
+      "SELECT * FROM dev_servers WHERE project_id = ? ORDER BY created_at DESC",
       [projectId]
     ),
 
   updateDevServerStatus: (status: string, id: string) =>
     execute(
-      `UPDATE dev_servers SET status = $1, updated_at = NOW() WHERE id = $2`,
+      "UPDATE dev_servers SET status = ?, updated_at = datetime('now') WHERE id = ?",
       [status, id]
     ),
 
   updateDevServerPid: (pid: number | null, status: string, id: string) =>
     execute(
-      `UPDATE dev_servers SET pid = $1, status = $2, updated_at = NOW() WHERE id = $3`,
+      "UPDATE dev_servers SET pid = ?, status = ?, updated_at = datetime('now') WHERE id = ?",
       [pid, status, id]
     ),
 
@@ -409,36 +425,36 @@ export const queries = {
     id: string
   ) =>
     execute(
-      `UPDATE dev_servers SET status = $1, pid = $2, container_id = $3, ports = $4, updated_at = NOW() WHERE id = $5`,
+      "UPDATE dev_servers SET status = ?, pid = ?, container_id = ?, ports = ?, updated_at = datetime('now') WHERE id = ?",
       [status, pid, containerId, ports, id]
     ),
 
   deleteDevServer: (id: string) =>
-    execute(`DELETE FROM dev_servers WHERE id = $1`, [id]),
+    execute("DELETE FROM dev_servers WHERE id = ?", [id]),
 
   deleteDevServersByProject: (projectId: string) =>
-    execute(`DELETE FROM dev_servers WHERE project_id = $1`, [projectId]),
+    execute("DELETE FROM dev_servers WHERE project_id = ?", [projectId]),
 
   getHiddenItems: (itemType: string) =>
     query<{ item_id: string }>(
-      `SELECT item_id FROM hidden_items WHERE item_type = $1`,
+      "SELECT item_id FROM hidden_items WHERE item_type = ?",
       [itemType]
     ),
 
   getAllHiddenItems: () =>
     query<{ item_type: string; item_id: string }>(
-      `SELECT item_type, item_id FROM hidden_items`
+      "SELECT item_type, item_id FROM hidden_items"
     ),
 
   hideItem: (itemType: string, itemId: string) =>
     execute(
-      `INSERT INTO hidden_items (item_type, item_id) VALUES ($1, $2) ON CONFLICT (item_type, item_id) DO NOTHING`,
+      "INSERT OR IGNORE INTO hidden_items (item_type, item_id) VALUES (?, ?)",
       [itemType, itemId]
     ),
 
   unhideItem: (itemType: string, itemId: string) =>
-    execute(
-      `DELETE FROM hidden_items WHERE item_type = $1 AND item_id = $2`,
-      [itemType, itemId]
-    ),
+    execute("DELETE FROM hidden_items WHERE item_type = ? AND item_id = ?", [
+      itemType,
+      itemId,
+    ]),
 };

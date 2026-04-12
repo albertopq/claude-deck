@@ -149,16 +149,21 @@ export async function POST(request: NextRequest) {
 
     // Set worktree info if created
     if (worktreePath) {
-      await queries.updateSessionWorktree(worktreePath, branchName, baseBranch, port, id);
+      await queries.updateSessionWorktree(
+        worktreePath,
+        branchName,
+        baseBranch,
+        port,
+        id
+      );
     }
 
     // Set claude_session_id if provided (for importing external sessions)
     if (claudeSessionId) {
-      const { getPool } = await import("@/lib/db");
-      await getPool().query(
-        "UPDATE sessions SET claude_session_id = $1 WHERE id = $2",
-        [claudeSessionId, id]
-      );
+      const { getDb } = await import("@/lib/db");
+      getDb()
+        .prepare("UPDATE sessions SET claude_session_id = ? WHERE id = ?")
+        .run(claudeSessionId, id);
     }
 
     // Messages are no longer stored in our DB - skipping message copy for forked sessions

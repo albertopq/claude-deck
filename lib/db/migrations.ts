@@ -1,34 +1,38 @@
-import type { Pool } from "pg";
+import type Database from "better-sqlite3";
 
 interface Migration {
   id: number;
   name: string;
-  up: (pool: Pool) => Promise<void>;
+  up: (db: Database.Database) => void;
 }
 
 const migrations: Migration[] = [];
 
-export async function runMigrations(pool: Pool): Promise<void> {
-  await pool.query(`
+export function runMigrations(db: Database.Database): void {
+  db.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
 
-  const result = await pool.query(`SELECT id FROM _migrations`);
-  const applied = new Set(result.rows.map((r: { id: number }) => r.id));
+  const applied = new Set(
+    db
+      .prepare("SELECT id FROM _migrations")
+      .all()
+      .map((r) => (r as { id: number }).id)
+  );
 
   for (const migration of migrations) {
     if (applied.has(migration.id)) continue;
 
     try {
-      await migration.up(pool);
-      await pool.query(`INSERT INTO _migrations (id, name) VALUES ($1, $2)`, [
+      migration.up(db);
+      db.prepare("INSERT INTO _migrations (id, name) VALUES (?, ?)").run(
         migration.id,
-        migration.name,
-      ]);
+        migration.name
+      );
       console.log(`Migration ${migration.id}: ${migration.name} applied`);
     } catch (error) {
       console.error(

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { getPool } from "@/lib/db";
+import { getDb } from "@/lib/db";
 
 const execAsync = promisify(exec);
 
@@ -24,10 +24,11 @@ export async function GET(
       const sessionId = line.replace("CLAUDE_SESSION_ID=", "");
       if (sessionId && sessionId !== "null") {
         // Update database with the session ID
-        await getPool().query(
-          "UPDATE sessions SET claude_session_id = $1, updated_at = NOW() WHERE id = $2",
-          [sessionId, id]
-        );
+        getDb()
+          .prepare(
+            "UPDATE sessions SET claude_session_id = ?, updated_at = datetime('now') WHERE id = ?"
+          )
+          .run(sessionId, id);
 
         return NextResponse.json({ claude_session_id: sessionId });
       }
