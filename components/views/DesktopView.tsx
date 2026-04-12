@@ -55,6 +55,7 @@ export function DesktopView({
   handleCreateDevServer,
   startDevServerProject,
   setStartDevServerProjectId,
+  newClaudeSession,
   resumeClaudeSession,
   renderPane,
 }: ViewProps) {
@@ -83,7 +84,7 @@ export function DesktopView({
               onStartDevServer={handleStartDevServer}
               onCreateDevServer={handleCreateDevServer}
               onResumeClaudeSession={resumeClaudeSession}
-              onNewSession={() => setShowNewSessionDialog(true)}
+              onNewSession={newClaudeSession}
             />
           </div>
 

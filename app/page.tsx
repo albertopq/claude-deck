@@ -339,6 +339,47 @@ function HomeContent() {
     [getTerminalWithFallback, getActiveTab, attachSession]
   );
 
+  const newClaudeSession = useCallback(
+    (cwd?: string, projectName?: string) => {
+      const terminalInfo = getTerminalWithFallback();
+      if (!terminalInfo) return;
+
+      const { terminal, paneId } = terminalInfo;
+      const activeTab = getActiveTab(paneId);
+      const isInTmux = !!activeTab?.attachedTmux;
+      const sessionId = crypto.randomUUID();
+      const tmuxName = `claude-${sessionId}`;
+      const dir = cwd || "~";
+      const tmuxCmd = `tmux new -s ${tmuxName} -c "${dir}" "claude"`;
+
+      if (isInTmux) {
+        terminal.sendInput("\x02d");
+      }
+
+      setTimeout(
+        () => {
+          terminal.sendInput("\x03");
+          setTimeout(() => {
+            terminal.sendCommand(tmuxCmd);
+            attachSession(
+              paneId,
+              sessionId,
+              tmuxName,
+              "New session",
+              projectName,
+              dir
+            );
+            terminal.focus();
+          }, 50);
+        },
+        isInTmux ? 100 : 0
+      );
+
+      if (isMobile) setSidebarOpen(false);
+    },
+    [getTerminalWithFallback, getActiveTab, attachSession, isMobile]
+  );
+
   // Notification click handler
   const handleNotificationClick = useCallback(
     (sessionId: string) => {
@@ -539,6 +580,7 @@ function HomeContent() {
     handleCreateDevServer: createDevServer,
     startDevServerProject,
     setStartDevServerProjectId,
+    newClaudeSession,
     resumeClaudeSession,
     renderPane,
   };

@@ -33,6 +33,7 @@ export function MobileView({
   handleCreateDevServer,
   startDevServerProject,
   setStartDevServerProjectId,
+  newClaudeSession,
   resumeClaudeSession,
   renderPane,
 }: ViewProps) {
@@ -61,7 +62,7 @@ export function MobileView({
               onStartDevServer={handleStartDevServer}
               onCreateDevServer={handleCreateDevServer}
               onResumeClaudeSession={resumeClaudeSession}
-              onNewSession={() => setShowNewSessionDialog(true)}
+              onNewSession={newClaudeSession}
             />
           </div>
 
