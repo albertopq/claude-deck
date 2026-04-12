@@ -219,17 +219,12 @@ export function DesktopView({
         onCreateProject={handleCreateProject}
       />
       <QuickSwitcher
-        sessions={sessions}
         open={showQuickSwitcher}
         onOpenChange={setShowQuickSwitcher}
         currentSessionId={focusedActiveTab?.sessionId ?? undefined}
         activeSessionWorkingDir={activeSession?.working_directory ?? undefined}
-        onSelectSession={(sessionId) => {
-          const session = sessions.find((s) => s.id === sessionId);
-          if (session) attachToSession(session);
-        }}
+        onResumeClaudeSession={resumeClaudeSession}
         onSelectFile={(file, line) => {
-          // Convert relative path to absolute by prepending working directory
           const absolutePath = activeSession?.working_directory
             ? `${activeSession.working_directory}/${file.replace(/^\.\//, "")}`
             : file;
