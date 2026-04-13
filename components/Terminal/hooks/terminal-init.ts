@@ -38,6 +38,7 @@ export function createTerminal(
     cursorStyle: "bar",
     cursorWidth: 2,
     allowProposedApi: true,
+    copyOnSelection: true,
     theme: terminalTheme,
   });
 
