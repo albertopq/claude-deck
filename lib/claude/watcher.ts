@@ -3,7 +3,7 @@ import path from "path";
 import os from "os";
 import { WebSocket } from "ws";
 import { invalidateProject, invalidateAll } from "./jsonl-cache";
-import { onStateFileChange } from "../status-monitor";
+import { onStateFileChange, invalidateSessionName } from "../status-monitor";
 import { STATES_DIR } from "../hooks/setup";
 
 const CLAUDE_PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects");
@@ -53,7 +53,13 @@ export function startWatcher(): void {
       ignored: [/node_modules/, /\.git/, /subagents/],
     });
 
-    projectsWatcher.on("change", handleFileChange);
+    projectsWatcher.on("change", (fp) => {
+      handleFileChange(fp);
+      if (fp.endsWith(".jsonl")) {
+        const sessionId = path.basename(fp, ".jsonl");
+        invalidateSessionName(sessionId);
+      }
+    });
     projectsWatcher.on("add", (fp) => {
       handleFileChange(fp);
       const relative = path.relative(CLAUDE_PROJECTS_DIR, fp);

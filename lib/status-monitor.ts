@@ -249,6 +249,10 @@ export function onStateFileChange(): void {
   tick().catch(console.error);
 }
 
+export function invalidateSessionName(sessionId: string): void {
+  sessionNameCache.delete(sessionId);
+}
+
 export function startStatusMonitor(): void {
   if (monitorTimer) return;
 
