@@ -48,6 +48,7 @@ interface PaneContextValue {
     workingDirectory?: string
   ) => void;
   detachSession: (paneId: string) => void;
+  reattachSession: (paneId: string) => void;
   getPaneData: (paneId: string) => PaneData;
   getActiveTab: (paneId: string) => TabData | null;
 }
@@ -223,7 +224,7 @@ export function PaneProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  // Detach session from active tab
+  // Detach session from active tab (preserves reference for re-attach)
   const detachSession = useCallback((paneId: string) => {
     setState((prev) => {
       const pane = prev.panes[paneId];
@@ -231,7 +232,41 @@ export function PaneProvider({ children }: { children: ReactNode }) {
 
       const newTabs = pane.tabs.map((tab) =>
         tab.id === pane.activeTabId
-          ? { ...tab, sessionId: null, attachedTmux: null }
+          ? {
+              ...tab,
+              detachedTmux: tab.attachedTmux,
+              detachedSessionId: tab.sessionId,
+              sessionId: null,
+              attachedTmux: null,
+            }
+          : tab
+      );
+
+      return {
+        ...prev,
+        panes: {
+          ...prev.panes,
+          [paneId]: { ...pane, tabs: newTabs },
+        },
+      };
+    });
+  }, []);
+
+  // Re-attach to the last detached session
+  const reattachSession = useCallback((paneId: string) => {
+    setState((prev) => {
+      const pane = prev.panes[paneId];
+      if (!pane) return prev;
+
+      const newTabs = pane.tabs.map((tab) =>
+        tab.id === pane.activeTabId && tab.detachedTmux
+          ? {
+              ...tab,
+              sessionId: tab.detachedSessionId,
+              attachedTmux: tab.detachedTmux,
+              detachedTmux: null,
+              detachedSessionId: null,
+            }
           : tab
       );
 
@@ -282,6 +317,7 @@ export function PaneProvider({ children }: { children: ReactNode }) {
         switchTab,
         attachSession,
         detachSession,
+        reattachSession,
         getPaneData,
         getActiveTab,
       }}

@@ -91,6 +91,7 @@ export const Pane = memo(function Pane({
     closeTab,
     switchTab,
     detachSession,
+    reattachSession,
   } = usePanes();
 
   const [viewMode, setViewMode] = useState<ViewMode>("terminal");
@@ -189,6 +190,14 @@ export const Pane = memo(function Pane({
     }
     detachSession(paneId);
   }, [detachSession, paneId, terminalRef]);
+
+  const handleReattach = useCallback(() => {
+    const tab = activeTab;
+    if (tab?.detachedTmux && terminalRef) {
+      terminalRef.sendCommand(`tmux attach -t ${tab.detachedTmux}`);
+      reattachSession(paneId);
+    }
+  }, [activeTab, terminalRef, reattachSession, paneId]);
 
   // Create ref callback for a specific tab
   const getTerminalRef = useCallback(
@@ -323,6 +332,8 @@ export const Pane = memo(function Pane({
           onSplitVertical={() => splitVertical(paneId)}
           onClose={() => close(paneId)}
           onDetach={handleDetach}
+          onReattach={handleReattach}
+          hasDetachedTmux={!!activeTab?.detachedTmux}
         />
       )}
 

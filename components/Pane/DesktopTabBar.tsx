@@ -6,6 +6,7 @@ import {
   SplitSquareVertical,
   X,
   Unplug,
+  Plug,
   Plus,
   FolderOpen,
   GitBranch,
@@ -53,6 +54,8 @@ interface DesktopTabBarProps {
   onSplitVertical: () => void;
   onClose: () => void;
   onDetach: () => void;
+  onReattach: () => void;
+  hasDetachedTmux: boolean;
 }
 
 export function DesktopTabBar({
@@ -79,6 +82,8 @@ export function DesktopTabBar({
   onSplitVertical,
   onClose,
   onDetach,
+  onReattach,
+  hasDetachedTmux,
 }: DesktopTabBarProps) {
   const getTabName = (tab: Tab) => {
     if (tab.sessionId) {
@@ -271,6 +276,24 @@ export function DesktopTabBar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>Detach from tmux</TooltipContent>
+          </Tooltip>
+        )}
+        {hasDetachedTmux && !hasAttachedTmux && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReattach();
+                }}
+                className="h-6 w-6 text-yellow-500"
+              >
+                <Plug className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Re-attach to tmux</TooltipContent>
           </Tooltip>
         )}
         <Tooltip>

@@ -21,6 +21,8 @@ export interface TabData {
   claudeProjectName: string | null;
   workingDirectory: string | null;
   attachedTmux: string | null;
+  detachedTmux: string | null;
+  detachedSessionId: string | null;
 }
 
 export interface PaneData {
@@ -48,6 +50,8 @@ export function createTab(): TabData {
     claudeProjectName: null,
     workingDirectory: null,
     attachedTmux: null,
+    detachedTmux: null,
+    detachedSessionId: null,
   };
 }
 
