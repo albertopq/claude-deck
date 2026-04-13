@@ -43,7 +43,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/atercates/claude-deck.git"
+    "url": "git+https://github.com/ATERCATES/claude-deck.git"
   },
   "keywords": [
     "claude",
@@ -59,9 +59,9 @@
     "node": ">=24"
   },
   "bugs": {
-    "url": "https://github.com/atercates/claude-deck/issues"
+    "url": "https://github.com/ATERCATES/claude-deck/issues"
   },
-  "homepage": "https://github.com/atercates/claude-deck#readme",
+  "homepage": "https://github.com/ATERCATES/claude-deck#readme",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.104",
     "@codemirror/lang-css": "^6.3.1",

@@ -7,7 +7,7 @@ This guide covers installing and running ClaudeDeck on your machine.
 Run this one-liner to install ClaudeDeck:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/atercates/claude-deck/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ATERCATES/claude-deck/main/scripts/install.sh | bash
 ```
 
 The installer will:
@@ -24,7 +24,7 @@ If you prefer to install manually:
 
 ```bash
 # Clone the repository
-git clone https://github.com/atercates/claude-deck ~/.claude-deck/repo
+git clone https://github.com/ATERCATES/claude-deck ~/.claude-deck/repo
 cd ~/.claude-deck/repo
 
 # Install dependencies
