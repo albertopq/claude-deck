@@ -7,13 +7,13 @@ This guide covers installing and running ClaudeDeck on your machine.
 Run this one-liner to install ClaudeDeck:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/saadnvd1/claude-deck/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/atercates/claude-deck/main/scripts/install.sh | bash
 ```
 
 The installer will:
 
 1. Download the `claude-deck` CLI to your PATH
-2. Check for prerequisites (Node.js 20+, git, tmux) and offer to install any missing ones
+2. Check for prerequisites (Node.js 24+, git, tmux) and offer to install any missing ones
 3. Detect installed AI CLIs or prompt you to install one (Claude Code recommended)
 4. Clone the repository to `~/.claude-deck/repo`
 5. Install dependencies and build for production
@@ -24,7 +24,7 @@ If you prefer to install manually:
 
 ```bash
 # Clone the repository
-git clone https://github.com/saadnvd1/claude-deck ~/.claude-deck/repo
+git clone https://github.com/atercates/claude-deck ~/.claude-deck/repo
 cd ~/.claude-deck/repo
 
 # Install dependencies
@@ -41,8 +41,8 @@ npm start
 
 After installation, use the `claude-deck` command to manage the server:
 
-| Command              | Description                     |
-| -------------------- | ------------------------------- |
+| Command                 | Description                     |
+| ----------------------- | ------------------------------- |
 | `claude-deck start`     | Start the server in background  |
 | `claude-deck stop`      | Stop the server                 |
 | `claude-deck restart`   | Restart the server              |
@@ -51,13 +51,13 @@ After installation, use the `claude-deck` command to manage the server:
 | `claude-deck update`    | Pull latest version and rebuild |
 | `claude-deck enable`    | Enable auto-start on boot       |
 | `claude-deck disable`   | Disable auto-start              |
-| `claude-deck uninstall` | Remove ClaudeDeck completely       |
+| `claude-deck uninstall` | Remove ClaudeDeck completely    |
 
 ## Prerequisites
 
 The installer can automatically install these on macOS and Linux:
 
-- **Node.js 20+** - JavaScript runtime
+- **Node.js 24+** - JavaScript runtime
 - **npm** - Package manager (comes with Node.js)
 - **git** - Version control
 - **tmux** - Terminal multiplexer for session management
@@ -77,10 +77,10 @@ You need at least one AI coding CLI installed. The installer will prompt you to 
 
 ### Environment Variables
 
-| Variable        | Default         | Description            |
-| --------------- | --------------- | ---------------------- |
+| Variable        | Default            | Description            |
+| --------------- | ------------------ | ---------------------- |
 | `AGENT_OS_HOME` | `~/.claude-deck`   | Installation directory |
-| `AGENT_OS_PORT` | `3011`          | Server port            |
+| `AGENT_OS_PORT` | `3011`             | Server port            |
 | `DB_PATH`       | `./claude-deck.db` | SQLite database path   |
 
 ### Custom Port
@@ -199,7 +199,7 @@ Common issues:
 
 - Port already in use: Change `AGENT_OS_PORT`
 - Missing dependencies: Run `claude-deck install` again
-- Node.js version: Ensure Node.js 20+ is installed
+- Node.js version: Ensure Node.js 24+ is installed
 
 ### Can't connect from phone
 

@@ -12,11 +12,11 @@ https://github.com/user-attachments/assets/0e2e66f7-037e-4739-99ec-608d1840df0a
 
 ### Via npm (Recommended)
 
-If you already have Node.js 20+ installed:
+If you already have Node.js 24+ installed:
 
 ```bash
 # Install globally
-npm install -g @saadnvd1/claude-deck
+npm install -g @atercates/claude-deck
 
 # Run setup (checks/installs tmux, ripgrep, builds app)
 claude-deck install
@@ -30,13 +30,13 @@ claude-deck start
 For fresh installs without Node.js:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/saadnvd1/claude-deck/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/atercates/claude-deck/main/scripts/install.sh | bash
 claude-deck start
 ```
 
 ### Desktop App
 
-Download native desktop apps from [Releases](https://github.com/saadnvd1/claude-deck/releases):
+Download native desktop apps from [Releases](https://github.com/atercates/claude-deck/releases):
 
 - macOS (Apple Silicon): `.dmg`
 - Linux: `.deb` or `.AppImage`
@@ -48,7 +48,7 @@ Download native desktop apps from [Releases](https://github.com/saadnvd1/claude-
 ### Manual Install
 
 ```bash
-git clone https://github.com/saadnvd1/claude-deck
+git clone https://github.com/atercates/claude-deck
 cd claude-deck
 npm install
 npm run dev  # http://localhost:3011
@@ -56,7 +56,7 @@ npm run dev  # http://localhost:3011
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 24+
 - tmux
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (for code search - auto-installed by installer script, or run `claude-deck update`)
 - At least one AI CLI: [Claude Code](https://github.com/anthropics/claude-code), [Codex](https://github.com/openai/codex), [OpenCode](https://github.com/anomalyco/opencode), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Aider](https://aider.chat/), or [Cursor CLI](https://cursor.com/cli)
@@ -113,7 +113,7 @@ For configuration and advanced usage, see the [docs](https://www.runagentos.com/
 
 ## Related Projects
 
-- **[aTerm](https://github.com/saadnvd1/aTerm)** - A Tauri-based desktop terminal workspace for AI-assisted coding. While ClaudeDeck is a mobile-first web UI, aTerm is a native desktop app with multi-pane layouts optimized for running AI coding agents (Claude Code, Aider, OpenCode) alongside shells, dev servers, and a built-in git panel. Choose ClaudeDeck for mobile access and browser-based workflows, or aTerm for a native desktop terminal experience.
+- **[aTerm](https://github.com/atercates/aTerm)** - A Tauri-based desktop terminal workspace for AI-assisted coding. While ClaudeDeck is a mobile-first web UI, aTerm is a native desktop app with multi-pane layouts optimized for running AI coding agents (Claude Code, Aider, OpenCode) alongside shells, dev servers, and a built-in git panel. Choose ClaudeDeck for mobile access and browser-based workflows, or aTerm for a native desktop terminal experience.
 - **[LumifyHub](https://lumifyhub.io)** - Team collaboration platform with real-time chat and structured documentation. Useful alongside ClaudeDeck for coordinating multi-agent work across a team — share session context, document architectural decisions from coding sessions, and track progress across parallel agent workflows.
 
 ## License

@@ -443,7 +443,7 @@ cmd_uninstall() {
     if [[ "$installed_via_npm" == true ]]; then
         echo ""
         log_info "To completely remove the CLI, run:"
-        echo "  npm uninstall -g @saadnvd1/claude-deck"
+        echo "  npm uninstall -g @atercates/claude-deck"
     fi
 }
 

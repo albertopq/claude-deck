@@ -3,7 +3,7 @@
 # ClaudeDeck Installer
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/saadnvd1/claude-deck/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/atercates/claude-deck/main/scripts/install.sh | bash
 #
 
 set -e
@@ -19,7 +19,7 @@ log_info() { echo -e "${BLUE}==>${NC} $1"; }
 log_success() { echo -e "${GREEN}==>${NC} $1"; }
 log_error() { echo -e "${RED}==>${NC} $1"; }
 
-REPO_URL="https://github.com/saadnvd1/claude-deck.git"
+REPO_URL="https://github.com/atercates/claude-deck.git"
 INSTALL_DIR="$HOME/.claude-deck/repo"
 
 echo ""
