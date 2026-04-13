@@ -20,6 +20,7 @@ const HOOK_EVENTS: Array<{ event: string; async: boolean }> = [
   { event: "UserPromptSubmit", async: true },
   { event: "PreToolUse", async: true },
   { event: "PermissionRequest", async: false },
+  { event: "Elicitation", async: false },
   { event: "Stop", async: true },
   { event: "SessionStart", async: true },
   { event: "SessionEnd", async: true },
@@ -54,12 +55,15 @@ process.stdin.on("end", function() {
     var lastLine = input.tool_name ? "Running: " + input.tool_name : "Running...";
     var state = { status: status, lastLine: lastLine, ts: Date.now() };
 
-    if (evt === "PermissionRequest") {
+    if (evt === "SessionStart") {
+      state.status = "idle";
+      state.lastLine = "";
+    } else if (evt === "PermissionRequest" || evt === "Elicitation") {
       state.status = "waiting";
-      state.lastLine = "Waiting: " + (input.tool_name || "permission");
+      state.lastLine = "Waiting: " + (input.tool_name || "input required");
       state.waitingContext = input.tool_name
         ? "Permission requested for " + input.tool_name
-        : "Permission requested";
+        : "Input required";
     } else if (evt === "Stop" && !input.stop_hook_active) {
       state.status = "idle";
       state.lastLine = (input.last_assistant_message || "").slice(0, 200);
