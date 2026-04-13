@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
 import { AlertCircle, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SessionStatus } from "@/components/views/types";
-import { useMutation } from "@tanstack/react-query";
 
 interface WaitingBannerProps {
   sessionStatuses: Record<string, SessionStatus>;
@@ -18,40 +17,40 @@ export function WaitingBanner({
   sessionStatuses,
   onSelectSession,
 }: WaitingBannerProps) {
-  const waitingSessions = useMemo(
-    () =>
-      Object.entries(sessionStatuses)
-        .filter(([, s]) => s.status === "waiting")
-        .map(([id, s]) => ({ id, ...s })),
-    [sessionStatuses]
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  const waitingSessions = useMemo(() => {
+    const sessions = Object.entries(sessionStatuses)
+      .filter(([, s]) => s.status === "waiting")
+      .map(([id, s]) => ({ id, ...s }));
+
+    // Clear dismissed entries that are no longer waiting
+    const waitingIds = new Set(sessions.map((s) => s.id));
+    setDismissed((prev) => {
+      const next = new Set([...prev].filter((id) => waitingIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+
+    return sessions;
+  }, [sessionStatuses]);
+
+  const visibleSessions = useMemo(
+    () => waitingSessions.filter((s) => !dismissed.has(s.id)),
+    [waitingSessions, dismissed]
   );
 
-  const acknowledgeMutation = useMutation({
-    mutationFn: async (sessionName: string) => {
-      await fetch("/api/sessions/status/acknowledge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionName }),
-      });
-    },
-    // Status monitor will pick up the change on next tick (~1s)
-  });
-
-  const handleDismiss = useCallback(
-    (sessionName: string) => {
-      acknowledgeMutation.mutate(sessionName);
-    },
-    [acknowledgeMutation]
-  );
+  const handleDismiss = useCallback((sessionId: string) => {
+    setDismissed((prev) => new Set([...prev, sessionId]));
+  }, []);
 
   const handleDismissAll = useCallback(() => {
-    waitingSessions.forEach((s) => acknowledgeMutation.mutate(s.sessionName));
-  }, [waitingSessions, acknowledgeMutation]);
+    setDismissed(new Set(waitingSessions.map((s) => s.id)));
+  }, [waitingSessions]);
 
-  if (waitingSessions.length === 0) return null;
+  if (visibleSessions.length === 0) return null;
 
-  const visible = waitingSessions.slice(0, MAX_VISIBLE);
-  const overflow = waitingSessions.length - MAX_VISIBLE;
+  const visible = visibleSessions.slice(0, MAX_VISIBLE);
+  const overflow = visibleSessions.length - MAX_VISIBLE;
 
   return (
     <div className="flex-shrink-0 border-b border-amber-500/30 bg-amber-500/5">
@@ -91,7 +90,7 @@ export function WaitingBanner({
                 variant="ghost"
                 size="icon-sm"
                 className="text-muted-foreground h-6 w-6"
-                onClick={() => handleDismiss(session.sessionName)}
+                onClick={() => handleDismiss(session.id)}
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -105,7 +104,7 @@ export function WaitingBanner({
           </div>
         )}
 
-        {waitingSessions.length > 1 && (
+        {visibleSessions.length > 1 && (
           <div className="flex justify-end px-4 py-1">
             <Button
               variant="ghost"
