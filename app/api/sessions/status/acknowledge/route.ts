@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { statusDetector } from "@/lib/status-detector";
+import { acknowledge, triggerTick } from "@/lib/status-monitor";
 
 export async function POST(request: Request) {
   try {
@@ -11,7 +11,8 @@ export async function POST(request: Request) {
       );
     }
 
-    statusDetector.acknowledge(sessionName);
+    acknowledge(sessionName);
+    triggerTick();
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Error acknowledging session:", error);

@@ -12,7 +12,8 @@ import { queries, type Session } from "./db";
 import { createWorktree, deleteWorktree } from "./worktrees";
 import { setupWorktree } from "./env-setup";
 import { type AgentType, getProvider } from "./providers";
-import { statusDetector } from "./status-detector";
+import { getStatusSnapshot } from "./status-monitor";
+import { getSessionIdFromName } from "./providers/registry";
 import { wrapWithBanner } from "./banner";
 import { runInBackground } from "./async-operations";
 
@@ -273,13 +274,10 @@ export async function getWorkers(
     const provider = getProvider(worker.agent_type || "claude");
     const tmuxSessionName = worker.tmux_name || `${provider.id}-${worker.id}`;
 
-    // Get live status from tmux
-    let liveStatus: string;
-    try {
-      liveStatus = await statusDetector.getStatus(tmuxSessionName);
-    } catch {
-      liveStatus = "dead";
-    }
+    // Get live status from cached monitor snapshot
+    const sessionId = getSessionIdFromName(tmuxSessionName);
+    const snapshot = getStatusSnapshot();
+    const liveStatus = snapshot[sessionId]?.status || "dead";
 
     // Combine DB status with live status
     let status: WorkerInfo["status"];
