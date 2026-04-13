@@ -1,11 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Session, Group } from "@/lib/db";
+import type { Session } from "@/lib/db";
 import type { AgentType } from "@/lib/providers";
 import { sessionKeys } from "./keys";
 
 interface SessionsResponse {
   sessions: Session[];
-  groups: Group[];
 }
 
 async function fetchSessions(): Promise<SessionsResponse> {
@@ -117,31 +116,6 @@ export function useSummarizeSession() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       return data.newSession || null;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: sessionKeys.list() });
-    },
-  });
-}
-
-export function useMoveSessionToGroup() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      sessionId,
-      groupPath,
-    }: {
-      sessionId: string;
-      groupPath: string;
-    }) => {
-      const res = await fetch(`/api/sessions/${sessionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupPath }),
-      });
-      if (!res.ok) throw new Error("Failed to move session");
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: sessionKeys.list() });

@@ -121,11 +121,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updates.push(`system_prompt = ?`);
       values.push(body.systemPrompt);
     }
-    if (body.groupPath !== undefined) {
-      updates.push(`group_path = ?`);
-      values.push(body.groupPath);
-    }
-
     if (updates.length > 0) {
       updates.push("updated_at = datetime('now')");
       values.push(id);

@@ -6,20 +6,17 @@ import {
   useRenameSession,
   useForkSession,
   useSummarizeSession,
-  useMoveSessionToGroup,
   useMoveSessionToProject,
 } from "@/data/sessions";
 
 export function useSessions() {
   const { data, refetch } = useSessionsQuery();
   const sessions = data?.sessions ?? [];
-  const groups = data?.groups ?? [];
 
   const deleteMutation = useDeleteSession();
   const renameMutation = useRenameSession();
   const forkMutation = useForkSession();
   const summarizeMutation = useSummarizeSession();
-  const moveToGroupMutation = useMoveSessionToGroup();
   const moveToProjectMutation = useMoveSessionToProject();
 
   const fetchSessions = useCallback(async () => {
@@ -55,13 +52,6 @@ export function useSessions() {
     [summarizeMutation]
   );
 
-  const moveSessionToGroup = useCallback(
-    async (sessionId: string, groupPath: string) => {
-      await moveToGroupMutation.mutateAsync({ sessionId, groupPath });
-    },
-    [moveToGroupMutation]
-  );
-
   const moveSessionToProject = useCallback(
     async (sessionId: string, projectId: string) => {
       await moveToProjectMutation.mutateAsync({ sessionId, projectId });
@@ -71,7 +61,6 @@ export function useSessions() {
 
   return {
     sessions,
-    groups,
     summarizingSessionId: summarizeMutation.isPending
       ? (summarizeMutation.variables as string)
       : null,
@@ -80,7 +69,6 @@ export function useSessions() {
     renameSession,
     forkSession,
     summarizeSession,
-    moveSessionToGroup,
     moveSessionToProject,
   };
 }

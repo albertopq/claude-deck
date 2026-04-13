@@ -43,7 +43,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       parentId,
       parent.model,
       parent.system_prompt,
-      parent.group_path || "sessions",
       agentType,
       parent.auto_approve,
       parent.project_id || "uncategorized"

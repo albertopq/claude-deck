@@ -8,19 +8,12 @@ import { findAvailablePort } from "@/lib/ports";
 import { runInBackground } from "@/lib/async-operations";
 import { getProject } from "@/lib/projects";
 
-// GET /api/sessions - List all sessions and groups
+// GET /api/sessions - List all sessions
 export async function GET() {
   try {
     const sessions = await queries.getAllSessions();
-    const groups = await queries.getAllGroups();
 
-    // Convert expanded from 0/1 to boolean
-    const formattedGroups = groups.map((g) => ({
-      ...g,
-      expanded: Boolean(g.expanded),
-    }));
-
-    return NextResponse.json({ sessions, groups: formattedGroups });
+    return NextResponse.json({ sessions });
   } catch (error) {
     console.error("Error fetching sessions:", error);
     return NextResponse.json(
@@ -56,7 +49,6 @@ export async function POST(request: NextRequest) {
       parentSessionId = null,
       model = "sonnet",
       systemPrompt = null,
-      groupPath = "sessions",
       claudeSessionId = null,
       agentType: rawAgentType = "claude",
       autoApprove = false,
@@ -141,7 +133,6 @@ export async function POST(request: NextRequest) {
       parentSessionId,
       model,
       systemPrompt,
-      groupPath,
       agentType,
       autoApprove,
       projectId

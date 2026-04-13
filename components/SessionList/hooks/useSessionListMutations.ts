@@ -13,7 +13,6 @@ import {
   useDeleteProject,
   useRenameProject,
 } from "@/data/projects";
-import { useToggleGroup, useCreateGroup, useDeleteGroup } from "@/data/groups";
 import {
   useStopDevServer,
   useRestartDevServer,
@@ -41,11 +40,6 @@ export function useSessionListMutations({
   const toggleProjectMutation = useToggleProject();
   const deleteProjectMutation = useDeleteProject();
   const renameProjectMutation = useRenameProject();
-
-  // Group mutations
-  const toggleGroupMutation = useToggleGroup();
-  const createGroupMutation = useCreateGroup();
-  const deleteGroupMutation = useDeleteGroup();
 
   // Dev server mutations
   const stopDevServerMutation = useStopDevServer();
@@ -122,30 +116,6 @@ export function useSessionListMutations({
       await renameProjectMutation.mutateAsync({ projectId, newName });
     },
     [renameProjectMutation]
-  );
-
-  // Group handlers
-  const handleToggleGroup = useCallback(
-    async (path: string, expanded: boolean) => {
-      await toggleGroupMutation.mutateAsync({ path, expanded });
-    },
-    [toggleGroupMutation]
-  );
-
-  const handleCreateGroup = useCallback(
-    async (name: string, parentPath?: string) => {
-      await createGroupMutation.mutateAsync({ name, parentPath });
-    },
-    [createGroupMutation]
-  );
-
-  const handleDeleteGroup = useCallback(
-    async (path: string) => {
-      if (!confirm("Delete this group? Sessions will be moved to parent."))
-        return;
-      await deleteGroupMutation.mutateAsync(path);
-    },
-    [deleteGroupMutation]
   );
 
   // Dev server handlers
@@ -251,11 +221,6 @@ export function useSessionListMutations({
     handleToggleProject,
     handleDeleteProject,
     handleRenameProject,
-
-    // Group handlers
-    handleToggleGroup,
-    handleCreateGroup,
-    handleDeleteGroup,
 
     // Dev server handlers
     handleStopDevServer,

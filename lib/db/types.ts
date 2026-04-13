@@ -31,14 +31,6 @@ export interface Session {
   worker_status: "pending" | "running" | "completed" | "failed" | null;
 }
 
-export interface Group {
-  path: string;
-  name: string;
-  expanded: boolean;
-  sort_order: number;
-  created_at: string;
-}
-
 export interface Project {
   id: string;
   name: string;

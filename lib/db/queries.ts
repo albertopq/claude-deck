@@ -1,7 +1,6 @@
 import { getDb } from "./index";
 import type {
   Session,
-  Group,
   Project,
   ProjectDevServer,
   ProjectRepository,
@@ -39,14 +38,13 @@ export const queries = {
     parentSessionId: string | null,
     model: string | null,
     systemPrompt: string | null,
-    groupPath: string,
     agentType: string,
     autoApprove: boolean,
     projectId: string | null
   ) =>
     execute(
-      `INSERT INTO sessions (id, name, tmux_name, working_directory, parent_session_id, model, system_prompt, group_path, agent_type, auto_approve, project_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO sessions (id, name, tmux_name, working_directory, parent_session_id, model, system_prompt, agent_type, auto_approve, project_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         name,
@@ -55,7 +53,6 @@ export const queries = {
         parentSessionId,
         model,
         systemPrompt,
-        groupPath,
         agentType,
         autoApprove ? 1 : 0,
         projectId,
@@ -112,24 +109,6 @@ export const queries = {
       [prUrl, prNumber, prStatus, id]
     ),
 
-  updateSessionGroup: (groupPath: string, id: string) =>
-    execute(
-      "UPDATE sessions SET group_path = ?, updated_at = datetime('now') WHERE id = ?",
-      [groupPath, id]
-    ),
-
-  getSessionsByGroup: (groupPath: string) =>
-    query<Session>(
-      "SELECT * FROM sessions WHERE group_path = ? ORDER BY updated_at DESC",
-      [groupPath]
-    ),
-
-  moveSessionsToGroup: (newGroupPath: string, oldGroupPath: string) =>
-    execute(
-      "UPDATE sessions SET group_path = ?, updated_at = datetime('now') WHERE group_path = ?",
-      [newGroupPath, oldGroupPath]
-    ),
-
   updateSessionProject: (projectId: string, id: string) =>
     execute(
       "UPDATE sessions SET project_id = ?, updated_at = datetime('now') WHERE id = ?",
@@ -162,13 +141,12 @@ export const queries = {
     conductorSessionId: string,
     workerTask: string,
     model: string | null,
-    groupPath: string,
     agentType: string,
     projectId: string | null
   ) =>
     execute(
-      `INSERT INTO sessions (id, name, tmux_name, working_directory, conductor_session_id, worker_task, worker_status, model, group_path, agent_type, project_id)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+      `INSERT INTO sessions (id, name, tmux_name, working_directory, conductor_session_id, worker_task, worker_status, model, agent_type, project_id)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
       [
         id,
         name,
@@ -177,42 +155,10 @@ export const queries = {
         conductorSessionId,
         workerTask,
         model,
-        groupPath,
         agentType,
         projectId,
       ]
     ),
-
-  getAllGroups: () =>
-    query<Group>("SELECT * FROM groups ORDER BY sort_order ASC, name ASC"),
-
-  getGroup: (path: string) =>
-    queryOne<Group>("SELECT * FROM groups WHERE path = ?", [path]),
-
-  createGroup: (path: string, name: string, sortOrder: number) =>
-    execute("INSERT INTO groups (path, name, sort_order) VALUES (?, ?, ?)", [
-      path,
-      name,
-      sortOrder,
-    ]),
-
-  updateGroupName: (name: string, path: string) =>
-    execute("UPDATE groups SET name = ? WHERE path = ?", [name, path]),
-
-  updateGroupExpanded: (expanded: boolean, path: string) =>
-    execute("UPDATE groups SET expanded = ? WHERE path = ?", [
-      expanded ? 1 : 0,
-      path,
-    ]),
-
-  updateGroupOrder: (sortOrder: number, path: string) =>
-    execute("UPDATE groups SET sort_order = ? WHERE path = ?", [
-      sortOrder,
-      path,
-    ]),
-
-  deleteGroup: (path: string) =>
-    execute("DELETE FROM groups WHERE path = ?", [path]),
 
   createProject: (
     id: string,

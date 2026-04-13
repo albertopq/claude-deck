@@ -141,7 +141,6 @@ export async function spawnWorker(
     conductorSessionId,
     task,
     model,
-    "sessions", // group_path
     agentType,
     "uncategorized" // project_id
   );

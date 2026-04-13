@@ -6,7 +6,6 @@ export {
   useRenameSession,
   useForkSession,
   useSummarizeSession,
-  useMoveSessionToGroup,
   useMoveSessionToProject,
 } from "./queries";
 export type { CreateSessionInput } from "./queries";

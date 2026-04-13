@@ -264,8 +264,8 @@ export async function POST(
       // Create new session in DB (using cwd already fetched above)
       getDb()
         .prepare(
-          `INSERT INTO sessions (id, name, tmux_name, working_directory, parent_session_id, model, initial_prompt, group_path, agent_type, auto_approve, project_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO sessions (id, name, tmux_name, working_directory, parent_session_id, model, initial_prompt, agent_type, auto_approve, project_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           newId,
@@ -275,7 +275,6 @@ export async function POST(
           null,
           session.model,
           `Continue from previous session. Here's a summary of the work so far:\n\n${summary}`,
-          session.group_path,
           agentType,
           session.auto_approve ? 1 : 0,
           session.project_id || "uncategorized"
