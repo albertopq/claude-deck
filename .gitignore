@@ -64,3 +64,4 @@ progress.md
 *.png
 !public/icons/*.png
 .playwright-mcp/
+.mcp.json

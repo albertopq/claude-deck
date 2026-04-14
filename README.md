@@ -2,12 +2,6 @@
 
 Self-hosted web UI for managing Claude Code sessions.
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/cSjutkCGAh)
-
-https://github.com/user-attachments/assets/0e2e66f7-037e-4739-99ec-608d1840df0a
-
-![ClaudeDeck Screenshot](screenshot-v2.png)
-
 ## Installation
 
 ### Quick Install
