@@ -21,8 +21,10 @@ export async function middleware(request: NextRequest) {
 
   const sessionCookie = request.cookies.get("claude_deck_session");
 
+  const internalBase = `http://localhost:${process.env.PORT || 3011}`;
+
   if (!sessionCookie?.value) {
-    const setupCheck = await fetch(new URL("/api/auth/session", request.url), {
+    const setupCheck = await fetch(`${internalBase}/api/auth/session`, {
       headers: { cookie: "" },
     });
     const data = await setupCheck.json();
@@ -37,7 +39,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const sessionCheck = await fetch(new URL("/api/auth/session", request.url), {
+  const sessionCheck = await fetch(`${internalBase}/api/auth/session`, {
     headers: { cookie: `claude_deck_session=${sessionCookie.value}` },
   });
 

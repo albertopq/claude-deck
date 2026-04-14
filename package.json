@@ -17,6 +17,7 @@
     "scripts/",
     "stores/",
     "styles/",
+    "middleware.ts",
     "next.config.js",
     "postcss.config.mjs",
     "server.ts",
