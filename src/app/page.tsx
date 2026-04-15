@@ -16,7 +16,7 @@ function debugLog(message: string) {
 
 // Expose to window for debugging
 if (typeof window !== "undefined") {
-  (window as unknown as { agentOSLogs: () => void }).agentOSLogs = () => {
+  (window as unknown as { claudeDeckLogs: () => void }).claudeDeckLogs = () => {
     console.log("=== ClaudeDeck Debug Logs ===");
     debugLogs.forEach((log) => console.log(log));
     console.log("=== End Logs ===");
@@ -228,7 +228,7 @@ function HomeContent() {
           `ERROR: No terminal available to attach session: ${session.name}`
         );
         alert(
-          `[ClaudeDeck Debug] No terminal available!\n\nRun agentOSLogs() in console to see debug logs.`
+          `[ClaudeDeck Debug] No terminal available!\n\nRun claudeDeckLogs() in console to see debug logs.`
         );
         return;
       }

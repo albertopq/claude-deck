@@ -8,7 +8,7 @@
 import { writeFileSync, existsSync, readFileSync } from "fs";
 import path from "path";
 
-const AGENTOS_URL = process.env.AGENTOS_URL || "http://localhost:3011";
+const CLAUDE_DECK_URL = process.env.CLAUDE_DECK_URL || "http://localhost:3011";
 
 interface McpConfig {
   mcpServers: Record<
@@ -57,7 +57,7 @@ export function ensureMcpConfig(
     command: "npx",
     args: ["tsx", orchestrationServerPath],
     env: {
-      AGENTOS_URL,
+      CLAUDE_DECK_URL,
       CONDUCTOR_SESSION_ID: sessionId,
     },
   };

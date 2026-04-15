@@ -1,7 +1,7 @@
 // LocalStorage keys
-export const SKIP_PERMISSIONS_KEY = "agentOS:skipPermissions";
-export const RECENT_DIRS_KEY = "agentOS:recentDirectories";
-export const USE_TMUX_KEY = "agentOS:useTmux";
+export const SKIP_PERMISSIONS_KEY = "claudeDeck:skipPermissions";
+export const RECENT_DIRS_KEY = "claudeDeck:recentDirectories";
+export const USE_TMUX_KEY = "claudeDeck:useTmux";
 export const MAX_RECENT_DIRS = 5;
 
 // Random feature name generator

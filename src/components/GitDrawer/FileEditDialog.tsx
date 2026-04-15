@@ -204,7 +204,7 @@ export function FileEditDialog({
       diagnosticOptions
     );
 
-    monaco.editor.defineTheme("agentOsDiff", {
+    monaco.editor.defineTheme("claudeDeckDiff", {
       base: "vs-dark",
       inherit: true,
       rules: [],
@@ -367,7 +367,7 @@ export function FileEditDialog({
                 original={originalContent}
                 modified={modifiedContent}
                 language={getLanguageFromPath(file.path)}
-                theme="agentOsDiff"
+                theme="claudeDeckDiff"
                 onMount={handleEditorMount}
                 beforeMount={handleBeforeMount}
                 options={{
