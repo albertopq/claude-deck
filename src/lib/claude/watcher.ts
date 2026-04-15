@@ -2,7 +2,7 @@ import { watch } from "chokidar";
 import path from "path";
 import os from "os";
 import { WebSocket } from "ws";
-import { invalidateProject, invalidateAll } from "./jsonl-cache";
+import { invalidateAllProjects } from "./jsonl-cache";
 import {
   onStateFileChange,
   invalidateSessionName,
@@ -47,7 +47,7 @@ function handleFileChange(filePath: string): void {
     projectName,
     setTimeout(() => {
       debounceTimers.delete(projectName);
-      invalidateProject(projectName);
+      invalidateAllProjects();
       broadcast({ type: "project-updated", projectName });
     }, 150)
   );
@@ -73,12 +73,12 @@ export function startWatcher(): void {
       handleFileChange(fp);
       const relative = path.relative(CLAUDE_PROJECTS_DIR, fp);
       if (!relative.includes(path.sep)) {
-        invalidateAll();
+        invalidateAllProjects();
         broadcast({ type: "projects-changed" });
       }
     });
     projectsWatcher.on("addDir", () => {
-      invalidateAll();
+      invalidateAllProjects();
       broadcast({ type: "projects-changed" });
     });
 

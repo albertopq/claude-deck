@@ -65,8 +65,11 @@ export async function getCachedProjects(): Promise<CachedProject[]> {
   if (projectsBuilding) return projectsBuilding;
 
   projectsBuilding = buildProjects();
-  projectsData = await projectsBuilding;
-  projectsBuilding = null;
+  try {
+    projectsData = await projectsBuilding;
+  } finally {
+    projectsBuilding = null;
+  }
   return projectsData;
 }
 
@@ -77,10 +80,6 @@ export async function getCachedSessions(
   return sessions;
 }
 
-export function invalidateProject(_projectName: string): void {
-  projectsData = null;
-}
-
-export function invalidateAll(): void {
+export function invalidateAllProjects(): void {
   projectsData = null;
 }
