@@ -122,13 +122,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       values.push(body.systemPrompt);
     }
     if (updates.length > 0) {
-      updates.push("updated_at = datetime('now')");
-      values.push(id);
-
-      const { getDb } = await import("@/lib/db");
-      getDb()
-        .prepare(`UPDATE sessions SET ${updates.join(", ")} WHERE id = ?`)
-        .run(...values);
+      const fields: Record<string, string> = {};
+      for (let i = 0; i < updates.length; i++) {
+        const col = updates[i].replace(" = ?", "");
+        fields[col] = values[i] as string;
+      }
+      queries.updateSessionFields(id, fields);
     }
 
     const session = await queries.getSession(id);

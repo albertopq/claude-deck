@@ -145,10 +145,7 @@ export async function POST(request: NextRequest) {
 
     // Set claude_session_id if provided (for importing external sessions)
     if (claudeSessionId) {
-      const { getDb } = await import("@/lib/db");
-      getDb()
-        .prepare("UPDATE sessions SET claude_session_id = ? WHERE id = ?")
-        .run(claudeSessionId, id);
+      queries.updateSessionClaudeId(claudeSessionId, id);
     }
 
     // Messages are no longer stored in our DB - skipping message copy for forked sessions

@@ -19,7 +19,7 @@ import {
   type AgentType,
 } from "./providers";
 import { broadcast } from "./claude/watcher";
-import { getDb } from "./db";
+import { queries } from "./db";
 import { getTunnelUrls } from "./tunnels";
 import { STATES_DIR } from "./hooks/setup";
 import { getSessionInfo } from "@anthropic-ai/claude-agent-sdk";
@@ -236,14 +236,11 @@ async function buildSnapshot(
   stateFiles: Map<string, StateFile>
 ): Promise<Record<string, SessionStatusSnapshot>> {
   const snap: Record<string, SessionStatusSnapshot> = {};
-  const db = getDb();
   const entries = await Promise.all(
     [...tmuxSessions.entries()].map(async ([sessionId, tmuxName]) => {
-      const dbSession = db
-        .prepare(
-          "SELECT name, working_directory, claude_session_id FROM sessions WHERE id = ? LIMIT 1"
-        )
-        .get(sessionId) as DbSessionMeta | undefined;
+      const dbSession = queries.getSessionBasic(sessionId) as
+        | DbSessionMeta
+        | undefined;
 
       if (dbSession) {
         const cwd = dbSession.working_directory || null;
@@ -305,9 +302,7 @@ async function buildSnapshot(
 
   // Filter out hidden sessions
   try {
-    const hiddenRows = db
-      .prepare("SELECT item_id FROM hidden_items WHERE item_type = 'session'")
-      .all() as { item_id: string }[];
+    const hiddenRows = queries.getHiddenItems("session");
     for (const { item_id } of hiddenRows) {
       delete snap[item_id];
     }
@@ -346,12 +341,9 @@ function updateDb(
   next: Record<string, SessionStatusSnapshot>
 ): void {
   try {
-    const db = getDb();
     for (const [id, snap] of Object.entries(next)) {
       if (prev[id]?.status === snap.status) continue;
-      db.prepare(
-        "UPDATE sessions SET updated_at = datetime('now') WHERE id = ?"
-      ).run(id);
+      queries.touchSession(id);
     }
   } catch {
     // DB errors shouldn't break the monitor

@@ -6,7 +6,7 @@
 
 import { exec } from "child_process";
 import { promisify } from "util";
-import { getDb } from "./db";
+import { queries } from "./db";
 
 const execAsync = promisify(exec);
 
@@ -34,12 +34,7 @@ export async function isPortInUse(port: number): Promise<boolean> {
  * Get all ports currently assigned to sessions
  */
 export async function getAssignedPorts(): Promise<number[]> {
-  const rows = getDb()
-    .prepare(
-      "SELECT dev_server_port FROM sessions WHERE dev_server_port IS NOT NULL"
-    )
-    .all() as Array<{ dev_server_port: number }>;
-  return rows.map((s) => s.dev_server_port);
+  return queries.getAssignedPorts();
 }
 
 /**
@@ -69,9 +64,7 @@ export async function findAvailablePort(): Promise<number> {
  */
 export async function assignPort(sessionId: string): Promise<number> {
   const port = await findAvailablePort();
-  getDb()
-    .prepare("UPDATE sessions SET dev_server_port = ? WHERE id = ?")
-    .run(port, sessionId);
+  queries.assignPort(port, sessionId);
   return port;
 }
 
@@ -79,9 +72,7 @@ export async function assignPort(sessionId: string): Promise<number> {
  * Release a port from a session
  */
 export async function releasePort(sessionId: string): Promise<void> {
-  getDb()
-    .prepare("UPDATE sessions SET dev_server_port = NULL WHERE id = ?")
-    .run(sessionId);
+  queries.releasePort(sessionId);
 }
 
 /**
@@ -90,8 +81,5 @@ export async function releasePort(sessionId: string): Promise<void> {
 export async function getSessionPort(
   sessionId: string
 ): Promise<number | null> {
-  const result = getDb()
-    .prepare("SELECT dev_server_port FROM sessions WHERE id = ?")
-    .get(sessionId) as { dev_server_port: number | null } | undefined;
-  return result?.dev_server_port || null;
+  return queries.getSessionPort(sessionId);
 }

@@ -290,4 +290,55 @@ export const queries = {
   deleteExpiredAuthSessions(): void {
     execute("DELETE FROM auth_sessions WHERE expires_at < datetime('now')");
   },
+
+  getSessionBasic: (id: string) =>
+    queryOne<{
+      name: string;
+      working_directory: string | null;
+      claude_session_id: string | null;
+    }>(
+      "SELECT name, working_directory, claude_session_id FROM sessions WHERE id = ? LIMIT 1",
+      [id]
+    ),
+
+  touchSession: (id: string) =>
+    execute("UPDATE sessions SET updated_at = datetime('now') WHERE id = ?", [
+      id,
+    ]),
+
+  updateSessionFields: (
+    id: string,
+    fields: Partial<{
+      name: string;
+      tmux_name: string;
+      status: string;
+      working_directory: string;
+      system_prompt: string;
+    }>
+  ) => {
+    const entries = Object.entries(fields).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) return;
+    const sets = entries.map(([k]) => `${k} = ?`);
+    sets.push("updated_at = datetime('now')");
+    const values = entries.map(([, v]) => v);
+    values.push(id);
+    execute(`UPDATE sessions SET ${sets.join(", ")} WHERE id = ?`, values);
+  },
+
+  getAssignedPorts: () =>
+    query<{ dev_server_port: number }>(
+      "SELECT dev_server_port FROM sessions WHERE dev_server_port IS NOT NULL"
+    ).map((r) => r.dev_server_port),
+
+  assignPort: (port: number, id: string) =>
+    execute("UPDATE sessions SET dev_server_port = ? WHERE id = ?", [port, id]),
+
+  releasePort: (id: string) =>
+    execute("UPDATE sessions SET dev_server_port = NULL WHERE id = ?", [id]),
+
+  getSessionPort: (id: string) =>
+    queryOne<{ dev_server_port: number | null }>(
+      "SELECT dev_server_port FROM sessions WHERE id = ?",
+      [id]
+    )?.dev_server_port ?? null,
 };
