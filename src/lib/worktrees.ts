@@ -269,3 +269,64 @@ export function isClaudeDeckWorktree(worktreePath: string): boolean {
 export function getWorktreesDir(): string {
   return WORKTREES_DIR;
 }
+
+export interface RepoIdentity {
+  repoRoot: string;
+  parentRoot: string | null;
+  isWorktree: boolean;
+}
+
+const repoIdentityCache = new Map<string, RepoIdentity | null>();
+
+/**
+ * Detect whether a directory is a plain git repo or a worktree, and
+ * return its parent repo root when applicable. Returns null if git is
+ * unavailable or the path is not a git working tree.
+ */
+export async function resolveRepoIdentity(
+  cwd: string
+): Promise<RepoIdentity | null> {
+  const cached = repoIdentityCache.get(cwd);
+  if (cached !== undefined) return cached;
+
+  try {
+    const [{ stdout: topStdout }, { stdout: commonStdout }] = await Promise.all(
+      [
+        execAsync(
+          `git -C "${cwd}" rev-parse --path-format=absolute --show-toplevel`,
+          { timeout: 2000 }
+        ),
+        execAsync(
+          `git -C "${cwd}" rev-parse --path-format=absolute --git-common-dir`,
+          { timeout: 2000 }
+        ),
+      ]
+    );
+
+    const repoRoot = topStdout.trim();
+    const commonDir = commonStdout.trim();
+    if (!repoRoot || !commonDir) {
+      repoIdentityCache.set(cwd, null);
+      return null;
+    }
+
+    const standaloneGitDir = path.join(repoRoot, ".git");
+    const isWorktree = commonDir !== standaloneGitDir;
+    const parentRoot = isWorktree ? commonDir.replace(/\/\.git\/?$/, "") : null;
+
+    const identity: RepoIdentity = { repoRoot, parentRoot, isWorktree };
+    repoIdentityCache.set(cwd, identity);
+    return identity;
+  } catch {
+    repoIdentityCache.set(cwd, null);
+    return null;
+  }
+}
+
+/**
+ * Clear the resolveRepoIdentity cache. Called when the Claude projects
+ * cache is invalidated.
+ */
+export function invalidateRepoIdentityCache(): void {
+  repoIdentityCache.clear();
+}
