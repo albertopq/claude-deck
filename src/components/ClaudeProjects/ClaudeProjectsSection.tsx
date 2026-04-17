@@ -2,7 +2,11 @@
 
 import { useState, useMemo } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { useClaudeProjectsQuery, useClaudeUpdates } from "@/data/claude";
+import {
+  useClaudeProjectsQuery,
+  useClaudeUpdates,
+  type ClaudeProject,
+} from "@/data/claude";
 import { ClaudeProjectCard } from "./ClaudeProjectCard";
 
 interface ClaudeProjectsSectionProps {
@@ -33,6 +37,41 @@ function ProjectsSkeleton() {
   );
 }
 
+interface ProjectGroup {
+  parent: ClaudeProject | null;
+  children: ClaudeProject[];
+}
+
+function groupByParent(projects: ClaudeProject[]): ProjectGroup[] {
+  const byDirectory = new Map<string, ClaudeProject>();
+  for (const p of projects) {
+    if (p.directory) byDirectory.set(p.directory, p);
+  }
+
+  const groups: ProjectGroup[] = [];
+  const consumed = new Set<string>();
+
+  for (const p of projects) {
+    if (p.isWorktree) continue;
+    groups.push({ parent: p, children: [] });
+    consumed.add(p.name);
+  }
+
+  for (const p of projects) {
+    if (!p.isWorktree) continue;
+    const parent = p.parentRoot ? byDirectory.get(p.parentRoot) : undefined;
+    if (parent && consumed.has(parent.name)) {
+      const group = groups.find((g) => g.parent?.name === parent.name);
+      group?.children.push(p);
+    } else {
+      groups.push({ parent: p, children: [] });
+      consumed.add(p.name);
+    }
+  }
+
+  return groups;
+}
+
 export function ClaudeProjectsSection({
   onSelectSession,
   onNewSession,
@@ -41,11 +80,9 @@ export function ClaudeProjectsSection({
   const { data: projects = [], isPending } = useClaudeProjectsQuery();
   const [showHidden, setShowHidden] = useState(false);
 
-  const filteredProjects = useMemo(() => {
-    const visible = projects.filter((p) => !p.hidden);
-    const hidden = projects.filter((p) => p.hidden);
-    if (showHidden) return [...visible, ...hidden];
-    return visible;
+  const groups = useMemo(() => {
+    const visible = showHidden ? projects : projects.filter((p) => !p.hidden);
+    return groupByParent(visible);
   }, [projects, showHidden]);
 
   const hiddenCount = projects.filter((p) => p.hidden).length;
@@ -74,14 +111,30 @@ export function ClaudeProjectsSection({
       {isPending && projects.length === 0 && <ProjectsSkeleton />}
 
       <div className="space-y-0.5">
-        {filteredProjects.map((project) => (
-          <ClaudeProjectCard
-            key={project.name}
-            project={project}
-            showHidden={showHidden}
-            onSelectSession={onSelectSession}
-            onNewSession={onNewSession}
-          />
+        {groups.map((group) => (
+          <div key={group.parent?.name ?? "orphan"}>
+            {group.parent && (
+              <ClaudeProjectCard
+                project={group.parent}
+                showHidden={showHidden}
+                onSelectSession={onSelectSession}
+                onNewSession={onNewSession}
+              />
+            )}
+            {group.children.length > 0 && (
+              <div className="border-border/30 ml-3 space-y-0.5 border-l pl-1.5">
+                {group.children.map((child) => (
+                  <ClaudeProjectCard
+                    key={child.name}
+                    project={child}
+                    showHidden={showHidden}
+                    onSelectSession={onSelectSession}
+                    onNewSession={onNewSession}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>
