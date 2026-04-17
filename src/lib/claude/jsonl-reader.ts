@@ -150,6 +150,7 @@ export async function getSessions(
 
   const sessions: SessionInfo[] = sdkSessions
     .filter((s) => !s.summary?.startsWith('{ "'))
+    .filter((s) => !dir || !s.cwd || s.cwd === dir)
     .map((s) => ({
       sessionId: s.sessionId,
       summary: s.customTitle || s.summary || "New Session",
