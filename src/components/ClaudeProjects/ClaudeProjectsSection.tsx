@@ -38,7 +38,7 @@ function ProjectsSkeleton() {
 }
 
 interface ProjectGroup {
-  parent: ClaudeProject | null;
+  parent: ClaudeProject;
   children: ClaudeProject[];
 }
 
@@ -49,23 +49,25 @@ function groupByParent(projects: ClaudeProject[]): ProjectGroup[] {
   }
 
   const groups: ProjectGroup[] = [];
-  const consumed = new Set<string>();
+  const groupByName = new Map<string, ProjectGroup>();
 
   for (const p of projects) {
     if (p.isWorktree) continue;
-    groups.push({ parent: p, children: [] });
-    consumed.add(p.name);
+    const group: ProjectGroup = { parent: p, children: [] };
+    groups.push(group);
+    groupByName.set(p.name, group);
   }
 
   for (const p of projects) {
     if (!p.isWorktree) continue;
     const parent = p.parentRoot ? byDirectory.get(p.parentRoot) : undefined;
-    if (parent && consumed.has(parent.name)) {
-      const group = groups.find((g) => g.parent?.name === parent.name);
-      group?.children.push(p);
+    const parentGroup = parent ? groupByName.get(parent.name) : undefined;
+    if (parentGroup) {
+      parentGroup.children.push(p);
     } else {
-      groups.push({ parent: p, children: [] });
-      consumed.add(p.name);
+      const orphan: ProjectGroup = { parent: p, children: [] };
+      groups.push(orphan);
+      groupByName.set(p.name, orphan);
     }
   }
 
@@ -112,15 +114,13 @@ export function ClaudeProjectsSection({
 
       <div className="space-y-0.5">
         {groups.map((group) => (
-          <div key={group.parent?.name ?? "orphan"}>
-            {group.parent && (
-              <ClaudeProjectCard
-                project={group.parent}
-                showHidden={showHidden}
-                onSelectSession={onSelectSession}
-                onNewSession={onNewSession}
-              />
-            )}
+          <div key={group.parent.name}>
+            <ClaudeProjectCard
+              project={group.parent}
+              showHidden={showHidden}
+              onSelectSession={onSelectSession}
+              onNewSession={onNewSession}
+            />
             {group.children.length > 0 && (
               <div className="border-border/30 ml-3 space-y-0.5 border-l pl-1.5">
                 {group.children.map((child) => (
