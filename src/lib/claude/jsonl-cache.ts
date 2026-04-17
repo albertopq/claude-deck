@@ -33,6 +33,9 @@ let invalidationTick = 0;
 
 async function buildProjects(): Promise<CachedProject[]> {
   const projectNames = getClaudeProjectNames();
+  console.log(
+    `[cache] buildProjects: readdir=${projectNames.length} names; test5 present=${projectNames.some((n) => n.includes("test5"))}`
+  );
 
   const allSessions = await sdkListSessions();
   const cwdToDir = new Map<string, string>();
@@ -110,11 +113,22 @@ async function buildProjects(): Promise<CachedProject[]> {
 const MAX_REBUILD_RETRIES = 5;
 
 export async function getCachedProjects(): Promise<CachedProject[]> {
-  if (projectsData) return projectsData;
-  if (projectsBuilding) return projectsBuilding;
+  if (projectsData) {
+    console.log(
+      `[cache] getCachedProjects: HIT (n=${projectsData.length}, tick=${invalidationTick})`
+    );
+    return projectsData;
+  }
+  if (projectsBuilding) {
+    console.log("[cache] getCachedProjects: awaiting in-flight build");
+    return projectsBuilding;
+  }
 
   for (let attempt = 0; attempt <= MAX_REBUILD_RETRIES; attempt++) {
     const startTick = invalidationTick;
+    console.log(
+      `[cache] getCachedProjects: attempt=${attempt} startTick=${startTick}`
+    );
     projectsBuilding = buildProjects();
     let result: CachedProject[];
     try {
@@ -122,14 +136,15 @@ export async function getCachedProjects(): Promise<CachedProject[]> {
     } finally {
       projectsBuilding = null;
     }
+    console.log(
+      `[cache] getCachedProjects: attempt=${attempt} result=${result.length} endTick=${invalidationTick}`
+    );
     if (invalidationTick === startTick || attempt === MAX_REBUILD_RETRIES) {
       projectsData = result;
+      console.log(`[cache] getCachedProjects: ACCEPT n=${projectsData.length}`);
       return projectsData;
     }
-    // Invalidation arrived during the build — the result is already stale;
-    // drop it and rebuild from current filesystem state.
   }
-  // Unreachable: the loop always exits via the return inside it.
   throw new Error("getCachedProjects: unreachable");
 }
 
