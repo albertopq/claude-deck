@@ -64,7 +64,11 @@ async function buildProjects(): Promise<CachedProject[]> {
   const sessionsByProject = new Map<string, typeof allSessions>();
   const seenSessionIds = new Set<string>();
 
-  for (const s of allSessions) {
+  const sessionsNewestFirst = [...allSessions].sort(
+    (a, b) => b.lastModified - a.lastModified
+  );
+
+  for (const s of sessionsNewestFirst) {
     if (seenSessionIds.has(s.sessionId)) continue;
     seenSessionIds.add(s.sessionId);
 
