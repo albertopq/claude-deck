@@ -164,3 +164,58 @@ export function useOpenInEditor() {
     },
   });
 }
+
+export interface WorktreeStatus {
+  dirty: boolean;
+  branchName: string;
+  activeSessions: number;
+  isClaudeDeckManaged: boolean;
+}
+
+async function fetchWorktreeStatus(path: string): Promise<WorktreeStatus> {
+  const res = await fetch(
+    `/api/worktrees/status?path=${encodeURIComponent(path)}`
+  );
+  if (!res.ok) throw new Error("Failed to fetch status");
+  return res.json();
+}
+
+export function useWorktreeStatus(path: string | null) {
+  return useQuery({
+    queryKey: ["worktree-status", path],
+    queryFn: () => fetchWorktreeStatus(path!),
+    enabled: !!path,
+    staleTime: 10_000,
+    retry: false,
+  });
+}
+
+export function useDeleteWorktree() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      worktreePath,
+      projectPath,
+      deleteBranch,
+    }: {
+      worktreePath: string;
+      projectPath: string;
+      deleteBranch: boolean;
+    }) => {
+      const res = await fetch("/api/worktrees", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ worktreePath, projectPath, deleteBranch }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to delete worktree");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: claudeKeys.projects() });
+      queryClient.invalidateQueries({ queryKey: claudeKeys.all });
+    },
+  });
+}
