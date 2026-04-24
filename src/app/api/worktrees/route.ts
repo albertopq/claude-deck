@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createWorktree, deleteWorktree } from "@/lib/worktrees";
+import {
+  createWorktree,
+  deleteWorktree,
+  renameWorktreeBranch,
+} from "@/lib/worktrees";
 import { invalidateAllProjects } from "@/lib/claude/jsonl-cache";
 
 export async function POST(request: NextRequest) {
@@ -45,6 +49,29 @@ export async function DELETE(request: NextRequest) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
       { error: `Failed to delete worktree: ${message}` },
+      { status: 400 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const { worktreePath, projectPath, newBranchName } = await request.json();
+    if (!worktreePath || !projectPath || !newBranchName) {
+      return NextResponse.json(
+        {
+          error: "worktreePath, projectPath and newBranchName are required",
+        },
+        { status: 400 }
+      );
+    }
+    await renameWorktreeBranch(worktreePath, projectPath, newBranchName);
+    invalidateAllProjects();
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json(
+      { error: `Failed to rename branch: ${message}` },
       { status: 400 }
     );
   }
