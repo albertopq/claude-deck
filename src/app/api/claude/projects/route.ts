@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 import {
   getCachedProjects,
   invalidateAllProjects,
 } from "@/lib/claude/jsonl-cache";
-import { deleteWorktree } from "@/lib/worktrees";
+import { assertManagedWorktree, deleteWorktree } from "@/lib/worktrees";
+import { removeClaudeProjectDir } from "@/lib/claude/project-artifacts";
 import { queries } from "@/lib/db";
 
 export interface ClaudeProject {
@@ -51,20 +49,6 @@ export async function GET() {
   }
 }
 
-async function removeProjectDir(projectName: string): Promise<void> {
-  const dir = path.join(os.homedir(), ".claude", "projects", projectName);
-  try {
-    await fs.promises.rm(dir, { recursive: true, force: true });
-  } catch {
-    // ignore
-  }
-  try {
-    await queries.unhideItem("project", projectName);
-  } catch {
-    // ignore
-  }
-}
-
 export async function DELETE(request: NextRequest) {
   try {
     const { projectName, includeWorktrees } = (await request.json()) as {
@@ -84,6 +68,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "project not found" }, { status: 404 });
     }
 
+    const failed: string[] = [];
     if (includeWorktrees && target.directory) {
       const children = projects.filter(
         (p) => p.isWorktree && p.parentRoot === target.directory
@@ -91,17 +76,18 @@ export async function DELETE(request: NextRequest) {
       for (const child of children) {
         if (!child.directory) continue;
         try {
+          assertManagedWorktree(child.directory);
           await deleteWorktree(child.directory, target.directory, true);
         } catch {
-          // continue even if a single worktree cleanup fails
+          failed.push(child.name);
         }
-        await removeProjectDir(child.name);
+        await removeClaudeProjectDir(child.name);
       }
     }
 
-    await removeProjectDir(projectName);
+    await removeClaudeProjectDir(projectName);
     invalidateAllProjects();
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, failed });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
