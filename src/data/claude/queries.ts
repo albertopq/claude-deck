@@ -120,3 +120,47 @@ export function useUnhideItem() {
     },
   });
 }
+
+export interface ExternalEditorAvailability {
+  vscode: boolean;
+  cursor: boolean;
+  finder: boolean;
+}
+
+async function fetchExternalEditors(): Promise<ExternalEditorAvailability> {
+  const res = await fetch("/api/external-editors");
+  if (!res.ok) throw new Error("Failed to fetch editors");
+  return res.json();
+}
+
+export function useExternalEditors() {
+  return useQuery({
+    queryKey: ["external-editors"],
+    queryFn: fetchExternalEditors,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+export function useOpenInEditor() {
+  return useMutation({
+    mutationFn: async ({
+      path,
+      editor,
+    }: {
+      path: string;
+      editor: "vscode" | "cursor" | "finder";
+    }) => {
+      const res = await fetch("/api/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, editor }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to open");
+      }
+      return res.json();
+    },
+  });
+}
