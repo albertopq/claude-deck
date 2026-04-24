@@ -1,10 +1,17 @@
 "use client";
 
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { MessageSquare, Eye, EyeOff } from "lucide-react";
+import { MessageSquare, Eye, EyeOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TruncatedText } from "@/components/ui/truncated-text";
-import type { ClaudeSession } from "@/data/claude";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { useDeleteClaudeSession, type ClaudeSession } from "@/data/claude";
 
 interface ClaudeSessionCardProps {
   session: ClaudeSession;
@@ -44,48 +51,79 @@ export function ClaudeSessionCard({
   onUnhide,
   onSelect,
 }: ClaudeSessionCardProps) {
+  const deleteSession = useDeleteClaudeSession();
+
   const handleClick = () => {
     if (onSelect && session.cwd) {
       onSelect(session.sessionId, session.cwd, session.summary, projectName);
     }
   };
 
+  const handleDelete = () => {
+    if (deleteSession.isPending) return;
+    deleteSession.mutate(
+      { projectName, sessionId: session.sessionId },
+      {
+        onSuccess: () => {
+          toast.success("Session deleted");
+        },
+        onError: (err) => {
+          toast.error(err.message || "Failed to delete session");
+        },
+      }
+    );
+  };
+
   return (
-    <div
-      onClick={handleClick}
-      className={cn(
-        "group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm",
-        "hover:bg-accent/50",
-        session.hidden && "opacity-40"
-      )}
-    >
-      <MessageSquare className="text-muted-foreground h-3.5 w-3.5 flex-shrink-0" />
-      <TruncatedText
-        text={session.summary || "Untitled session"}
-        className="flex-1 text-xs"
-      />
-      <span className="text-muted-foreground flex-shrink-0 text-[10px]">
-        {getTimeAgo(session.lastActivity)}
-      </span>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (session.hidden) {
-            onUnhide();
-          } else {
-            onHide();
-          }
-        }}
-      >
-        {session.hidden ? (
-          <Eye className="h-3.5 w-3.5" />
-        ) : (
-          <EyeOff className="h-3.5 w-3.5" />
-        )}
-      </Button>
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          onClick={handleClick}
+          className={cn(
+            "group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm",
+            "hover:bg-accent/50",
+            session.hidden && "opacity-40",
+            deleteSession.isPending && "pointer-events-none opacity-50"
+          )}
+        >
+          <MessageSquare className="text-muted-foreground h-3.5 w-3.5 flex-shrink-0" />
+          <TruncatedText
+            text={session.summary || "Untitled session"}
+            className="flex-1 text-xs"
+          />
+          <span className="text-muted-foreground flex-shrink-0 text-[10px]">
+            {getTimeAgo(session.lastActivity)}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (session.hidden) {
+                onUnhide();
+              } else {
+                onHide();
+              }
+            }}
+          >
+            {session.hidden ? (
+              <Eye className="h-3.5 w-3.5" />
+            ) : (
+              <EyeOff className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem
+          onSelect={handleDelete}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="mr-2 h-3.5 w-3.5" />
+          Delete session
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

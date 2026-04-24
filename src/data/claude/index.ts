@@ -4,6 +4,7 @@ export {
   useClaudeSessionsQuery,
   useHideItem,
   useUnhideItem,
+  useDeleteClaudeSession,
   useExternalEditors,
   useOpenInEditor,
   useDeleteWorktree,

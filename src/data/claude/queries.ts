@@ -98,6 +98,32 @@ export function useHideItem() {
   });
 }
 
+export function useDeleteClaudeSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      projectName,
+      sessionId,
+    }: {
+      projectName: string;
+      sessionId: string;
+    }) => {
+      const res = await fetch(
+        `/api/claude/projects/${encodeURIComponent(projectName)}/sessions/${encodeURIComponent(sessionId)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to delete session");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: claudeKeys.all });
+    },
+  });
+}
+
 export function useUnhideItem() {
   const queryClient = useQueryClient();
 
