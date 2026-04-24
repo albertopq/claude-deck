@@ -25,8 +25,14 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ClaudeSessionCard } from "./ClaudeSessionCard";
 import { DeleteWorktreeDialog } from "./DeleteWorktreeDialog";
+import { RenameWorktreeDialog } from "./RenameWorktreeDialog";
 import {
   useClaudeSessionsQuery,
   useHideItem,
@@ -35,11 +41,15 @@ import {
   useOpenInEditor,
 } from "@/data/claude";
 import { useProjectExpansion } from "@/hooks/useProjectExpansion";
-import type { ClaudeProject } from "@/data/claude";
+import type { ClaudeProject, WorktreeSummary } from "@/data/claude";
+import { Pencil } from "lucide-react";
+
+const ABANDONED_MS = 14 * 24 * 60 * 60 * 1000;
 
 interface ClaudeProjectCardProps {
   project: ClaudeProject;
   worktreeChildren?: ClaudeProject[];
+  worktreeStatuses?: Map<string, WorktreeSummary>;
   showHidden: boolean;
   onSelectSession?: (
     sessionId: string,
@@ -53,6 +63,7 @@ interface ClaudeProjectCardProps {
 export function ClaudeProjectCard({
   project,
   worktreeChildren = [],
+  worktreeStatuses,
   showHidden,
   onSelectSession,
   onNewSession,
@@ -76,6 +87,16 @@ export function ClaudeProjectCard({
   const { data: editors } = useExternalEditors();
   const openInEditor = useOpenInEditor();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+
+  const summary =
+    project.isWorktree && project.directory
+      ? worktreeStatuses?.get(project.directory)
+      : undefined;
+  const isAbandoned =
+    !!summary &&
+    summary.activeSessions === 0 &&
+    Date.now() - summary.createdAt > ABANDONED_MS;
 
   const sessions = sessionsData?.sessions || [];
   const filteredSessions = showHidden
@@ -131,6 +152,10 @@ export function ClaudeProjectCard({
             Copiar path
           </ContextMenuItem>
           <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => setShowRenameDialog(true)}>
+            <Pencil className="mr-2 h-3 w-3" />
+            Renombrar rama…
+          </ContextMenuItem>
           <ContextMenuItem
             onClick={() => setShowDeleteDialog(true)}
             className="text-red-600 focus:text-red-600"
@@ -162,7 +187,8 @@ export function ClaudeProjectCard({
         "group flex cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 text-sm",
         "min-h-[36px] md:min-h-[28px]",
         "hover:bg-accent/50",
-        project.hidden && "opacity-40"
+        project.hidden && "opacity-40",
+        isAbandoned && !project.hidden && "opacity-60"
       )}
     >
       <button className="flex-shrink-0 p-0.5">
@@ -181,6 +207,26 @@ export function ClaudeProjectCard({
         text={project.displayName}
         className="min-w-0 flex-1 text-sm font-medium"
       />
+      {summary && (
+        <span className="flex flex-shrink-0 items-center gap-0.5">
+          {summary.dirty && (
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-amber-500"
+              title="Cambios sin commitear"
+            />
+          )}
+          {summary.ahead > 0 && (
+            <span className="font-mono text-[9px] text-blue-500">
+              ↑{summary.ahead}
+            </span>
+          )}
+          {summary.behind > 0 && (
+            <span className="font-mono text-[9px] text-rose-400">
+              ↓{summary.behind}
+            </span>
+          )}
+        </span>
+      )}
       <span className="text-muted-foreground flex-shrink-0 text-[10px]">
         {countLabel}
       </span>
@@ -216,10 +262,42 @@ export function ClaudeProjectCard({
     </div>
   );
 
+  const tooltipContent =
+    project.isWorktree && summary ? (
+      <div className="space-y-0.5 text-xs">
+        <div className="font-mono font-medium">{summary.branchName}</div>
+        {summary.lastCommitSubject && (
+          <div className="text-muted-foreground max-w-[260px] truncate">
+            {summary.lastCommitSubject}
+            {summary.lastCommitRelative && ` · ${summary.lastCommitRelative}`}
+          </div>
+        )}
+        <div className="text-muted-foreground">
+          Creado {new Date(summary.createdAt).toLocaleDateString()}
+        </div>
+        {isAbandoned && (
+          <div className="text-amber-500">
+            Sin sesiones recientes (14+ días)
+          </div>
+        )}
+      </div>
+    ) : null;
+
+  const triggerRow = tooltipContent ? (
+    <Tooltip>
+      <TooltipTrigger asChild>{masterRow}</TooltipTrigger>
+      <TooltipContent side="right" className="max-w-[300px]">
+        {tooltipContent}
+      </TooltipContent>
+    </Tooltip>
+  ) : (
+    masterRow
+  );
+
   return (
     <div className="space-y-0.5">
       <ContextMenu>
-        <ContextMenuTrigger asChild>{masterRow}</ContextMenuTrigger>
+        <ContextMenuTrigger asChild>{triggerRow}</ContextMenuTrigger>
         <ContextMenuContent>{menuContent}</ContextMenuContent>
       </ContextMenu>
 
@@ -312,6 +390,7 @@ export function ClaudeProjectCard({
                     <ClaudeProjectCard
                       key={child.name}
                       project={child}
+                      worktreeStatuses={worktreeStatuses}
                       showHidden={showHidden}
                       onSelectSession={onSelectSession}
                       onNewSession={onNewSession}
@@ -328,6 +407,13 @@ export function ClaudeProjectCard({
         <DeleteWorktreeDialog
           open={showDeleteDialog}
           onOpenChange={setShowDeleteDialog}
+          worktree={project}
+        />
+      )}
+      {showRenameDialog && (
+        <RenameWorktreeDialog
+          open={showRenameDialog}
+          onOpenChange={setShowRenameDialog}
           worktree={project}
         />
       )}

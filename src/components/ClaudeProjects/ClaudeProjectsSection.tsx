@@ -5,7 +5,9 @@ import { ChevronsDownUp, Eye, EyeOff, Loader2 } from "lucide-react";
 import {
   useClaudeProjectsQuery,
   useClaudeUpdates,
+  useWorktreeStatuses,
   type ClaudeProject,
+  type WorktreeSummary,
 } from "@/data/claude";
 import { ClaudeProjectCard } from "./ClaudeProjectCard";
 import { collapseAllProjects } from "@/hooks/useProjectExpansion";
@@ -88,6 +90,19 @@ export function ClaudeProjectsSection({
     return groupByParent(visible);
   }, [projects, showHidden]);
 
+  const worktreePaths = useMemo(
+    () =>
+      groups.flatMap(
+        (g) => g.children.map((c) => c.directory).filter(Boolean) as string[]
+      ),
+    [groups]
+  );
+  const { data: statuses = [] } = useWorktreeStatuses(worktreePaths);
+  const worktreeStatuses = useMemo<Map<string, WorktreeSummary>>(
+    () => new Map(statuses.map((s) => [s.path, s])),
+    [statuses]
+  );
+
   const hiddenCount = projects.filter((p) => p.hidden).length;
 
   return (
@@ -127,6 +142,7 @@ export function ClaudeProjectsSection({
             key={group.parent.name}
             project={group.parent}
             worktreeChildren={group.children}
+            worktreeStatuses={worktreeStatuses}
             showHidden={showHidden}
             onSelectSession={onSelectSession}
             onNewSession={onNewSession}
