@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   ChevronRight,
@@ -10,12 +11,15 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { TruncatedText } from "@/components/ui/truncated-text";
@@ -24,6 +28,8 @@ import {
   useClaudeSessionsQuery,
   useHideItem,
   useUnhideItem,
+  useExternalEditors,
+  useOpenInEditor,
 } from "@/data/claude";
 import { useProjectExpansion } from "@/hooks/useProjectExpansion";
 import type { ClaudeProject } from "@/data/claude";
@@ -55,6 +61,8 @@ export function ClaudeProjectCard({
     useClaudeSessionsQuery(sessionsEnabled ? project.name : null);
   const hideItem = useHideItem();
   const unhideItem = useUnhideItem();
+  const { data: editors } = useExternalEditors();
+  const openInEditor = useOpenInEditor();
 
   const sessions = sessionsData?.sessions || [];
   const filteredSessions = showHidden
@@ -70,20 +78,64 @@ export function ClaudeProjectCard({
   const handleUnhideProject = () =>
     unhideItem.mutate({ itemType: "project", itemId: project.name });
 
+  const handleCopyPath = async () => {
+    if (!project.directory) return;
+    try {
+      await navigator.clipboard.writeText(project.directory);
+      toast.success("Path copiado");
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  };
+
+  const handleOpenInEditor = (editor: "vscode" | "cursor" | "finder") => {
+    if (!project.directory) return;
+    openInEditor.mutate({ path: project.directory, editor });
+  };
+
   const countLabel = hasWorktrees
     ? `${sessionCount} ses · ${worktreeCount} wt`
     : `${sessionCount}`;
 
-  const menuContent = project.hidden ? (
-    <ContextMenuItem onClick={handleUnhideProject}>
-      <Eye className="mr-2 h-3 w-3" />
-      Show project
-    </ContextMenuItem>
-  ) : (
-    <ContextMenuItem onClick={handleHideProject}>
-      <EyeOff className="mr-2 h-3 w-3" />
-      Hide project
-    </ContextMenuItem>
+  const menuContent = (
+    <>
+      {project.isWorktree && (
+        <>
+          {editors?.vscode && (
+            <ContextMenuItem onClick={() => handleOpenInEditor("vscode")}>
+              <ExternalLink className="mr-2 h-3 w-3" />
+              Abrir en VS Code
+            </ContextMenuItem>
+          )}
+          {editors?.cursor && (
+            <ContextMenuItem onClick={() => handleOpenInEditor("cursor")}>
+              <ExternalLink className="mr-2 h-3 w-3" />
+              Abrir en Cursor
+            </ContextMenuItem>
+          )}
+          <ContextMenuItem onClick={() => handleOpenInEditor("finder")}>
+            <ExternalLink className="mr-2 h-3 w-3" />
+            Abrir en Finder
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleCopyPath}>
+            <Copy className="mr-2 h-3 w-3" />
+            Copiar path
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      )}
+      {project.hidden ? (
+        <ContextMenuItem onClick={handleUnhideProject}>
+          <Eye className="mr-2 h-3 w-3" />
+          Show project
+        </ContextMenuItem>
+      ) : (
+        <ContextMenuItem onClick={handleHideProject}>
+          <EyeOff className="mr-2 h-3 w-3" />
+          Hide project
+        </ContextMenuItem>
+      )}
+    </>
   );
 
   const masterRow = (
