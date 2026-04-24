@@ -114,27 +114,14 @@ export function ClaudeProjectsSection({
 
       <div className="space-y-0.5">
         {groups.map((group) => (
-          <div key={group.parent.name}>
-            <ClaudeProjectCard
-              project={group.parent}
-              showHidden={showHidden}
-              onSelectSession={onSelectSession}
-              onNewSession={onNewSession}
-            />
-            {group.children.length > 0 && (
-              <div className="border-border/30 ml-3 space-y-0.5 border-l pl-1.5">
-                {group.children.map((child) => (
-                  <ClaudeProjectCard
-                    key={child.name}
-                    project={child}
-                    showHidden={showHidden}
-                    onSelectSession={onSelectSession}
-                    onNewSession={onNewSession}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          <ClaudeProjectCard
+            key={group.parent.name}
+            project={group.parent}
+            worktreeChildren={group.children}
+            showHidden={showHidden}
+            onSelectSession={onSelectSession}
+            onNewSession={onNewSession}
+          />
         ))}
       </div>
     </div>

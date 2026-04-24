@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   ChevronRight,
@@ -26,10 +25,12 @@ import {
   useHideItem,
   useUnhideItem,
 } from "@/data/claude";
+import { useProjectExpansion } from "@/hooks/useProjectExpansion";
 import type { ClaudeProject } from "@/data/claude";
 
 interface ClaudeProjectCardProps {
   project: ClaudeProject;
+  worktreeChildren?: ClaudeProject[];
   showHidden: boolean;
   onSelectSession?: (
     sessionId: string,
@@ -42,13 +43,16 @@ interface ClaudeProjectCardProps {
 
 export function ClaudeProjectCard({
   project,
+  worktreeChildren = [],
   showHidden,
   onSelectSession,
   onNewSession,
 }: ClaudeProjectCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const { expansion, toggleMaster, toggleSessions, toggleWorktrees } =
+    useProjectExpansion(project.name);
+  const sessionsEnabled = expansion.master && expansion.sessions;
   const { data: sessionsData, isPending: isSessionsPending } =
-    useClaudeSessionsQuery(expanded ? project.name : null);
+    useClaudeSessionsQuery(sessionsEnabled ? project.name : null);
   const hideItem = useHideItem();
   const unhideItem = useUnhideItem();
 
@@ -57,13 +61,18 @@ export function ClaudeProjectCard({
     ? sessions
     : sessions.filter((s) => !s.hidden);
 
-  const handleHideProject = () => {
-    hideItem.mutate({ itemType: "project", itemId: project.name });
-  };
+  const hasWorktrees = worktreeChildren.length > 0 && !project.isWorktree;
+  const sessionCount = project.sessionCount;
+  const worktreeCount = worktreeChildren.length;
 
-  const handleUnhideProject = () => {
+  const handleHideProject = () =>
+    hideItem.mutate({ itemType: "project", itemId: project.name });
+  const handleUnhideProject = () =>
     unhideItem.mutate({ itemType: "project", itemId: project.name });
-  };
+
+  const countLabel = hasWorktrees
+    ? `${sessionCount} ses · ${worktreeCount} wt`
+    : `${sessionCount}`;
 
   const menuContent = project.hidden ? (
     <ContextMenuItem onClick={handleUnhideProject}>
@@ -77,9 +86,9 @@ export function ClaudeProjectCard({
     </ContextMenuItem>
   );
 
-  const cardContent = (
+  const masterRow = (
     <div
-      onClick={() => setExpanded(!expanded)}
+      onClick={toggleMaster}
       className={cn(
         "group flex cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 text-sm",
         "min-h-[36px] md:min-h-[28px]",
@@ -88,7 +97,7 @@ export function ClaudeProjectCard({
       )}
     >
       <button className="flex-shrink-0 p-0.5">
-        {expanded ? (
+        {expansion.master ? (
           <ChevronDown className="text-muted-foreground h-4 w-4" />
         ) : (
           <ChevronRight className="text-muted-foreground h-4 w-4" />
@@ -104,7 +113,7 @@ export function ClaudeProjectCard({
         className="min-w-0 flex-1 text-sm font-medium"
       />
       <span className="text-muted-foreground flex-shrink-0 text-[10px]">
-        {project.sessionCount}
+        {countLabel}
       </span>
       {onNewSession && (
         <Button
@@ -125,11 +134,8 @@ export function ClaudeProjectCard({
         className="h-7 w-7 flex-shrink-0 opacity-100 md:h-6 md:w-6 md:opacity-0 md:group-hover:opacity-100"
         onClick={(e) => {
           e.stopPropagation();
-          if (project.hidden) {
-            handleUnhideProject();
-          } else {
-            handleHideProject();
-          }
+          if (project.hidden) handleUnhideProject();
+          else handleHideProject();
         }}
       >
         {project.hidden ? (
@@ -144,44 +150,105 @@ export function ClaudeProjectCard({
   return (
     <div className="space-y-0.5">
       <ContextMenu>
-        <ContextMenuTrigger asChild>{cardContent}</ContextMenuTrigger>
+        <ContextMenuTrigger asChild>{masterRow}</ContextMenuTrigger>
         <ContextMenuContent>{menuContent}</ContextMenuContent>
       </ContextMenu>
 
-      {expanded && (
-        <div className="border-border/30 ml-3 space-y-px border-l pl-1.5">
-          {isSessionsPending ? (
-            <div className="flex items-center gap-2 px-2 py-2">
-              <Loader2 className="text-muted-foreground h-3 w-3 animate-spin" />
-              <span className="text-muted-foreground text-xs">
-                Loading sessions...
-              </span>
+      {expansion.master && (
+        <div className="border-border/30 ml-3 space-y-0.5 border-l pl-1.5">
+          <div
+            onClick={toggleSessions}
+            className="hover:bg-accent/30 flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs"
+          >
+            {expansion.sessions ? (
+              <ChevronDown className="text-muted-foreground h-3 w-3" />
+            ) : (
+              <ChevronRight className="text-muted-foreground h-3 w-3" />
+            )}
+            <span className="text-muted-foreground font-medium">
+              Sesiones ({sessionCount})
+            </span>
+          </div>
+          {expansion.sessions && (
+            <div className="space-y-px pl-3">
+              {isSessionsPending ? (
+                <div className="flex items-center gap-2 px-2 py-2">
+                  <Loader2 className="text-muted-foreground h-3 w-3 animate-spin" />
+                  <span className="text-muted-foreground text-xs">
+                    Loading sessions...
+                  </span>
+                </div>
+              ) : filteredSessions.length === 0 ? (
+                <p className="text-muted-foreground px-2 py-2 text-xs">
+                  No sessions
+                </p>
+              ) : (
+                filteredSessions.map((session) => (
+                  <ClaudeSessionCard
+                    key={session.sessionId}
+                    session={session}
+                    projectName={project.name}
+                    onSelect={onSelectSession}
+                    onHide={() =>
+                      hideItem.mutate({
+                        itemType: "session",
+                        itemId: session.sessionId,
+                      })
+                    }
+                    onUnhide={() =>
+                      unhideItem.mutate({
+                        itemType: "session",
+                        itemId: session.sessionId,
+                      })
+                    }
+                  />
+                ))
+              )}
             </div>
-          ) : filteredSessions.length === 0 ? (
-            <p className="text-muted-foreground px-2 py-2 text-xs">
-              No sessions
-            </p>
-          ) : (
-            filteredSessions.map((session) => (
-              <ClaudeSessionCard
-                key={session.sessionId}
-                session={session}
-                projectName={project.name}
-                onSelect={onSelectSession}
-                onHide={() =>
-                  hideItem.mutate({
-                    itemType: "session",
-                    itemId: session.sessionId,
-                  })
-                }
-                onUnhide={() =>
-                  unhideItem.mutate({
-                    itemType: "session",
-                    itemId: session.sessionId,
-                  })
-                }
-              />
-            ))
+          )}
+
+          {hasWorktrees && (
+            <>
+              <div
+                onClick={toggleWorktrees}
+                className="hover:bg-accent/30 group flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs"
+              >
+                {expansion.worktrees ? (
+                  <ChevronDown className="text-muted-foreground h-3 w-3" />
+                ) : (
+                  <ChevronRight className="text-muted-foreground h-3 w-3" />
+                )}
+                <span className="text-muted-foreground flex-1 font-medium">
+                  Worktrees ({worktreeCount})
+                </span>
+                {onNewSession && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNewSession(project.directory || "~", project.name);
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              {expansion.worktrees && (
+                <div className="space-y-0.5 pl-3">
+                  {worktreeChildren.map((child) => (
+                    <ClaudeProjectCard
+                      key={child.name}
+                      project={child}
+                      showHidden={showHidden}
+                      onSelectSession={onSelectSession}
+                      onNewSession={onNewSession}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
